@@ -1,0 +1,44 @@
+General Page Summary:
+- Flight Deck; View weekly momentum score + weekly summary of stats
+- Flight log; View tasks upcoming for the next week, and check them off (auto sync with Google Sheets)
+- Altitude; View goal progress for last week
+- Turbulence; View weaknesses progress over the last week
+- Radar; Charts for progress of tasks, goals, and weaknesses over past week
+- Debrief; AI generated summary each week with advice, strengths of the week, and how I can improve
+- Assistant; Chat to the local LLM to get further elaboration on issues or guidance
+
+
+More specific use cases per page:
+- Flight Deck:
+	+ User can visualize general statistics, and preview information from other tabs here
+	+ Main importance is weekly momentum score
+
+- Flight log:
+	+ User can view tasks due for next 7 days
+	+ Can either sort by "Due date", or by "Do date";
+	+ "Do date" view will allow user to drag and drop tasks Kanban-style into each specific day of the week 
+	+ "Do date" view will show all tasks not done yet
+	+ Any changes to either view will auto sync with the Google Sheets 
+
+- Altitude:
+	+ Tracker for how many days at least one goal worked on (most important)
+	+ Tracker for each goal and how many times a week worked towards
+	+ Side panel for goal backlog
+- Turbulence:
+	+ Pulls from weaknesses tab on Google Sheets, tracks worked on at least one per day
+	+ Also adds weaknesses from weekly debrief that get automatically analyzed by the LLM
+
+- Radar:
+	+ Show graph trend of tasks, goals, and weaknesses completion over the weeks
+	+ Toggle on/off each of the metrics
+	+ Change range of x-axis to last week, last month, last year, etc.
+
+- Debrief:
+	+ Major general weekly debrief generated each Sunday for previous week
+	+ Before general debrief is generated, LLM will give general statistics for week so far
+	+ On debrief generated, 3 weaknesses show up, can choose to add to weaknesses tab for next week
+
+- Assistant
+	+ User can prompt normal questions about data and Google Sheets trends
+	+ 3 suggested questions at top for auto prompt
+	+ Can mention feeling weak about certain aspect, AI will ask to add weakness to Turbulence tab
