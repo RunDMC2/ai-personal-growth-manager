@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import uvicorn
 
-# from .routes import auth, goals, users
+from .routes.sheetRouter import router as sheet_router
 
 
 app = FastAPI(
@@ -9,9 +9,7 @@ app = FastAPI(
 	version="1.0.0",
 )
 
-# app.include_router(auth.router)
-# app.include_router(goals.router)
-# app.include_router(users.router)
+app.include_router(sheet_router)
 
 
 @app.get("/", tags=["health"])
