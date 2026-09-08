@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import uvicorn
 
-from .routes.sheetRouter import router as sheet_router
+from routes.sheetRouter import router as sheet_router
 
 
 app = FastAPI(
