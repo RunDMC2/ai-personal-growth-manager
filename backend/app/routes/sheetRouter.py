@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from ..controllers.sheetController import pull_stats
+from app.controllers.sheetController import pull_stats
 
 router = APIRouter(
     prefix="/sheets",
