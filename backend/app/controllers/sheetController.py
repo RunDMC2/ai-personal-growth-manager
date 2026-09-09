@@ -1,15 +1,16 @@
 import requests
 from os import getenv
+from dotenv import load_dotenv
 
 from googleapiclient.discovery import build
 from app.google_auth import get_credentials
 
+load_dotenv()
 
 def pull_stats_test():
     creds = get_credentials()
     range_name = "Dashboard!D2:I25"
     spreadsheet_id = getenv("SIP_SHEET_ID")
-    print(spreadsheet_id)  
 
     service = build("sheets", "v4", credentials=creds)
 
