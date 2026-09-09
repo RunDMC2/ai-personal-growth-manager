@@ -1,7 +1,6 @@
 import requests
 from os import getenv
 from dotenv import load_dotenv
-import json
 
 from googleapiclient.discovery import build
 from app.google_auth import get_credentials
@@ -21,7 +20,7 @@ def pull_stats_test():
         .get(spreadsheetId=spreadsheet_id, range=range_name)
         .execute()
     )
-    rows = result.get("values", []).json()
+    rows = result.get("values", [])
     return rows
 
 def pull_stats():
