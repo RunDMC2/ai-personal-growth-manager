@@ -7,9 +7,18 @@ from app.google_auth import get_credentials
 
 load_dotenv()
 
-def pull_stats_test():
+def pull_from_range(range_name: str):
+    """
+    Returns desired range of data from desired range in the form of:
+
+    e.g. for "Dashboard!A1:E25"
+    [
+        [A1, B1, C1, D1, E1],
+        [A2, B2, C2, D2, E2],
+        ...
+    ]
+    """
     creds = get_credentials()
-    range_name = "Dashboard!D2:I25"
     spreadsheet_id = getenv("SIP_SHEET_ID")
 
     service = build("sheets", "v4", credentials=creds)
