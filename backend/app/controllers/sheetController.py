@@ -2,7 +2,7 @@ import requests
 from os import getenv
 
 from googleapiclient.discovery import build
-from backend.app.google_auth import get_credentials
+from app.google_auth import get_credentials
 
 
 def pull_stats_test():
