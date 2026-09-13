@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 import requests
 from os import getenv
 from dotenv import load_dotenv
@@ -21,112 +23,41 @@ def pull_filtered_todo_list():
     """
     creds = get_credentials()
     spreadsheet_id = getenv("SIP_SHEET_ID")
-
     service = build("sheets", "v4", credentials=creds)
 
-    range = {
-        "sheetId": 2081456943,      # To Do list sheet ID
-        "startRowIndex": 1,         # Skip header row
-        "startColumnIndex": 0,
-        "endColumnIndex": 8,        # Include columns A-H (0-7)
-    }
-
-    # request for all tasks from today and onward, sorted by Due By date (ascending),
-    # including uncompleted and completed tasks
-    todayOnwardTasks = {
-        "addFilterView": {
-            "filter": {
-                "title": "Today Onward Tasks",
-                "range": range,
-                "sortSpecs": [
-                    {
-                        "dimensionIndex": 4,  # Sort by Due By column (Date)
-                        "sortOrder": "ASCENDING",
-                    }
-                ],
-                "criteria": {
-                    4: {  # Due By column (Date)
-                        "condition": {
-                            "type": "DATE_AFTER",
-                            "values": {"relativeDate": "TODAY"},
-                        }
-                    }
-                },
-            }
-        }
-    }
-
-    body = {"requests": [todayOnwardTasks]}
-    todayOnwardTasksResponse = (
+    result = (
         service.spreadsheets()
-        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
+        .values()
+        .get(spreadsheetId=spreadsheet_id, range="'To Do'!A2:H")
         .execute()
     )
+    rows = result.get("values", [])
 
-    # filters and returns only the tasks that are overdue
-    overdueTasks = {
-        "addFilterView": {
-            "filter": {
-                "title": "Overdue Tasks",
-                "range": range,
-                "sortSpecs": [
-                    {
-                        "dimensionIndex": 4,  # Sort by Due By column (Date)
-                        "sortOrder": "ASCENDING",
-                    }
-                ],
-                "criteria": {
-                    4: {  # Due By column (Date)
-                        "condition": {
-                            "type": "DATE_BEFORE",
-                            "values": {"relativeDate": "TODAY"},
-                        }
-                    }
-                },
-            }
-        }
+    today = date.today()
+    today_onward, overdue, do_tasks = [], [], []
+
+    for row in rows:
+        # pad row in case trailing empty cells were dropped
+        row = row + [""] * (8 - len(row))
+        do_flag, task, _, _, due_by = row[0], row[1], row[2], row[3], row[4]
+
+        if not due_by:
+            continue
+        due_date = datetime.strptime(due_by, "%m/%d/%Y").date()
+
+        if due_date >= today:
+            today_onward.append(row)
+        else:
+            overdue.append(row)
+
+        if do_flag == "TRUE":
+            do_tasks.append(row)
+
+    return {
+        "today_onward": today_onward,
+        "overdue": overdue,
+        "do_tasks": do_tasks,
     }
-
-    body = {"requests": [overdueTasks]}
-    overdueTasksResponse = (
-        service.spreadsheets()
-        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
-        .execute()
-    )
-
-    # filteres only for tasks marked as "Do" (TRUE) in the Do column
-    doTasks = {
-        "addFilterView": {
-            "filter": {
-                "title": "Do Tasks",
-                "range": range,
-                "sortSpecs": [
-                    {
-                        "dimensionIndex": 4,  # Sort by Due By column (Date)
-                        "sortOrder": "ASCENDING",
-                    }
-                ],
-                "criteria": {
-                    0: {  # Do column
-                        "condition": {
-                            "type": "TEXT_EQ",
-                            "values": [{"userEnteredValue": "TRUE"}],
-                        }
-                    }
-                },
-            }
-        }
-    }
-    body = {"requests": [doTasks]}
-    doTasksResponse = (
-        service.spreadsheets()
-        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
-        .execute()
-    )
-
-    print("All tasks:\n", todayOnwardTasksResponse, "\n")
-    print("Overdue tasks:\n", overdueTasksResponse, "\n")
-    print("Do tasks:\n", doTasksResponse, "\n")
 
 
 # ----- General pulling ranges -----
