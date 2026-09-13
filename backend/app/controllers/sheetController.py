@@ -58,8 +58,7 @@ def pull_filtered_todo_list():
     body = {"requests": [todayOnwardTasks]}
     todayOnwardTasksResponse = (
         service.spreadsheets()
-        .values()
-        .get(spreadsheetId=spreadsheet_id, body=body)
+        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
         .execute()
     )
 
@@ -90,8 +89,7 @@ def pull_filtered_todo_list():
     body = {"requests": [overdueTasks]}
     overdueTasksResponse = (
         service.spreadsheets()
-        .values()
-        .get(spreadsheetId=spreadsheet_id, body=body)
+        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
         .execute()
     )
 
@@ -121,8 +119,7 @@ def pull_filtered_todo_list():
     body = {"requests": [doTasks]}
     doTasksResponse = (
         service.spreadsheets()
-        .values()
-        .get(spreadsheetId=spreadsheet_id, body=body)
+        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
         .execute()
     )
 
