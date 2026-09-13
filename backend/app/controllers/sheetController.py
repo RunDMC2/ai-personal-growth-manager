@@ -39,7 +39,7 @@ def pull_filtered_todo_list():
     for row in rows:
         # pad row in case trailing empty cells were dropped
         row = row + [""] * (8 - len(row))
-        do_flag, task, _, _, due_by = row[0], row[1], row[2], row[3], row[4]
+        do_flag, done_flag, task, assigned_by, due_by = row[0], row[1], row[2], row[3], row[4]
 
         if not due_by:
             continue
@@ -47,7 +47,7 @@ def pull_filtered_todo_list():
 
         if due_date >= today:
             today_onward.append(row)
-        else:
+        elif done_flag != "TRUE" and due_date < today:
             overdue.append(row)
 
         if do_flag == "TRUE":
