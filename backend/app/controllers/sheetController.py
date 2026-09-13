@@ -28,6 +28,7 @@ def pull_filtered_todo_list():
         "sheetId": 2081456943,      # To Do list sheet ID
         "startRowIndex": 1,         # Skip header row
         "startColumnIndex": 0,
+        "endColumnIndex": 8,        # Include columns A-H (0-7)
     }
 
     # request for all tasks from today and onward, sorted by Due By date (ascending),
