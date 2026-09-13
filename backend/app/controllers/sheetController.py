@@ -7,6 +7,7 @@ from app.google_auth import get_credentials
 
 load_dotenv()
 
+
 # ----- Pull from To Do list -----
 
 def pull_filtered_todo_list():
@@ -23,17 +24,111 @@ def pull_filtered_todo_list():
 
     service = build("sheets", "v4", credentials=creds)
 
-    body = {
+    range = {
+        "sheetId": 2081456943,      # To Do list sheet ID
+        "startRowIndex": 1,         # Skip header row
+        "startColumnIndex": 0,
     }
 
-    result = (
+    # request for all tasks from today and onward, sorted by Due By date (ascending),
+    # including uncompleted and completed tasks
+    todayOnwardTasks = {
+        "addFilterView": {
+            "filter": {
+                "title": "Today Onward Tasks",
+                "range": range,
+                "sortSpecs": [
+                    {
+                        "dimensionIndex": 4,  # Sort by Due By column (Date)
+                        "sortOrder": "ASCENDING",
+                    }
+                ],
+                "criteria": {
+                    4: {  # Due By column (Date)
+                        "condition": {
+                            "type": "DATE_AFTER",
+                            "values": {"relativeDate": "TODAY"},
+                        }
+                    }
+                },
+            }
+        }
+    }
+
+    body = {"requests": [todayOnwardTasks]}
+    todayOnwardTasksResponse = (
         service.spreadsheets()
         .values()
         .get(spreadsheetId=spreadsheet_id, body=body)
         .execute()
     )
 
+    # filters and returns only the tasks that are overdue
+    overdueTasks = {
+        "addFilterView": {
+            "filter": {
+                "title": "Overdue Tasks",
+                "range": range,
+                "sortSpecs": [
+                    {
+                        "dimensionIndex": 4,  # Sort by Due By column (Date)
+                        "sortOrder": "ASCENDING",
+                    }
+                ],
+                "criteria": {
+                    4: {  # Due By column (Date)
+                        "condition": {
+                            "type": "DATE_BEFORE",
+                            "values": {"relativeDate": "TODAY"},
+                        }
+                    }
+                },
+            }
+        }
+    }
 
+    body = {"requests": [overdueTasks]}
+    overdueTasksResponse = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, body=body)
+        .execute()
+    )
+
+    # filteres only for tasks marked as "Do" (TRUE) in the Do column
+    doTasks = {
+        "addFilterView": {
+            "filter": {
+                "title": "Do Tasks",
+                "range": range,
+                "sortSpecs": [
+                    {
+                        "dimensionIndex": 4,  # Sort by Due By column (Date)
+                        "sortOrder": "ASCENDING",
+                    }
+                ],
+                "criteria": {
+                    0: {  # Do column
+                        "condition": {
+                            "type": "TEXT_EQ",
+                            "values": [{"userEnteredValue": "TRUE"}],
+                        }
+                    }
+                },
+            }
+        }
+    }
+    body = {"requests": [doTasks]}
+    doTasksResponse = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, body=body)
+        .execute()
+    )
+
+    print("All tasks:\n", todayOnwardTasksResponse, "\n")
+    print("Overdue tasks:\n", overdueTasksResponse, "\n")
+    print("Do tasks:\n", doTasksResponse, "\n")
 
 
 # ----- General pulling ranges -----
