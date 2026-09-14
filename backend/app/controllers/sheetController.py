@@ -50,7 +50,7 @@ def pull_filtered_todo_list():
         elif done_flag != "TRUE" and due_date < today:
             overdue.append(row)
 
-        if do_flag == "TRUE":
+        if do_flag == "TRUE" and due_date >= today:
             do_tasks.append(row)
 
     return {
