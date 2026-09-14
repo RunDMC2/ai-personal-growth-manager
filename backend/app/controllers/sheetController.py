@@ -12,7 +12,7 @@ load_dotenv()
 
 # ----- Pull from To Do list -----
 
-def pull_filtered_todo_list():
+async def pull_filtered_todo_list():
     """
     Returns filtered list of To Do tasks to be completed from
     today and onwards, in the form of:
