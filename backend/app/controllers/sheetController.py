@@ -21,6 +21,9 @@ async def pull_filtered_todo_list():
         ...
     ]
     """
+    # TODO: replace this with logging to scheduler database table
+    print(f"[{datetime.now()}] Job started")
+
     creds = get_credentials()
     spreadsheet_id = getenv("SIP_SHEET_ID")
     service = build("sheets", "v4", credentials=creds)
@@ -52,6 +55,8 @@ async def pull_filtered_todo_list():
 
         if do_flag == "TRUE" and due_date >= today:
             do_tasks.append(row)
+    # TODO: replace this with logging to scheduler database table
+    print(f"[{datetime.now()}] Job finished")
 
     return {
         "today_onward": today_onward,
