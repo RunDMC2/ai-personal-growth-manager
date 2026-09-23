@@ -6,7 +6,9 @@ import { useEffect } from "react";
 export function useScheduler(job_id: string) {
   useEffect(() => {
     const base_url = process.env.NEXT_PUBLIC_API_URL;
-    fetch(`${base_url}/scheduler/start/${job_id}`, { method: "POST" })
+    fetch(`${base_url}/scheduler/start/${job_id}`, { 
+      method: "POST" 
+    }).catch((err) => console.error("Failed to start scheduler job:", err));
 
     return () => {
       navigator.sendBeacon(`${base_url}/scheduler/stop/${job_id}`);
