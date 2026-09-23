@@ -16,6 +16,6 @@ def log_last_ran_time(job_id: str, base_job: str = None):
             VALUES (%s, %s, %s)
             ON CONFLICT (job_id)
             DO UPDATE SET
-                last_ran = EXCLUDED.last_ran
+                last_ran = EXCLUDED.last_ran,
                 base_job = EXCLUDED.base_job
         """, (job_id, datetime.now(tz=timezone.utc), base_job))
