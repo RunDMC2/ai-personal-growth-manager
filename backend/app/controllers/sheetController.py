@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from googleapiclient.discovery import build
 from app.google_auth import get_credentials
-from app.scheduler.scheduler import log_last_ran_time
+from app.scheduler.scheduler_log import log_last_ran_time
 
 load_dotenv()
 
