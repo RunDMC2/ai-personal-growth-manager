@@ -5,17 +5,18 @@ import { useEffect } from "react";
 
 export function useScheduler(job_id: string) {
   useEffect(() => {
-    fetch(`/api/scheduler/start/${job_id}`, { method: "POST" })
+    const base_url = process.env.NEXT_PUBLIC_API_URL;
+    fetch(`${base_url}/api/scheduler/start/${job_id}`, { method: "POST" })
 
     return () => {
-      navigator.sendBeacon(`/api/scheduler/stop/${job_id}`);
+      navigator.sendBeacon(`${base_url}/api/scheduler/stop/${job_id}`);
     };
   }, [job_id]);
 }
 
 export default function FlightLogView() {
   useScheduler("update_todo_list");
-  
+
   return (
     <div className="asc-view">
       <div className="asc-section-head">
