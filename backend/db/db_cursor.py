@@ -5,7 +5,7 @@ from functools import lru_cache
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import ThreadedConnectionPool
 
-import load_dotenv
+from dotenv import load_dotenv
 load_dotenv()
 
 
