@@ -2,7 +2,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
-from app.controllers.sheetController import pull_filtered_todo_list
+from app.controllers.sheetController import pull_todo_list
+from db.db_cursor import db_cursor
 
 scheduler = AsyncIOScheduler()
 router = APIRouter(
@@ -24,12 +25,13 @@ Add new jobs to the registry, and then call register_jobs() to add them to the s
 """
 JOB_REGISTRY = {
     "flight_log": {
-        "func": pull_filtered_todo_list,
+        "func": pull_todo_list,
         "id": "update_todo_list",
         "seconds": 15,
     }
 }
 
+# ----- Controllers -----
 def register_jobs():
     for job in JOB_REGISTRY:
         scheduler.add_job(
@@ -48,6 +50,7 @@ def start_job(job_id: str):
     job = scheduler.get_job(job_id)
     if job:
         scheduler.modify_job(job_id, next_run_time=datetime.now()) # runs immediately
+        log_last_ran_time(job_id)
     else:
         raise ValueError(f"No job found with ID: {job_id}")
 
@@ -63,7 +66,7 @@ def stop_job(job_id: str):
         raise ValueError(f"No job found with ID: {job_id}")
     
 
-# Routes
+# ----- Routes -----
 @router.post("/register-jobs")
 async def register_jobs_route():
     try:
@@ -71,7 +74,7 @@ async def register_jobs_route():
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return {"status": "registered", "jobs": list(JOB_REGISTRY.keys())}
-    
+
 @router.post("/start/{job_id}")
 async def start_job_route(job_id: str):
     try:
@@ -89,3 +92,20 @@ async def stop_job_route(job_id: str):
     return {"status": "stopped", "job_id": job_id}
 
 
+# ----- Upload last ran time to database -----
+def log_last_ran_time(job_id: str):
+    """
+    Log the last ran time of a job to the database.
+    """
+    job = scheduler.get_job(job_id)
+    if job:
+        last_ran_time = job.next_run_time
+
+        with db_cursor(commit=True) as cur:
+            cur.execute("""
+                INSERT INTO scheduler (job_id, last_ran)
+                VALUES (job_id, datetime.now())
+                ON CONFLICT (job_id)
+                DO UPDATE SET
+                    last_ran = EXCLUDED.last_ran
+            """)

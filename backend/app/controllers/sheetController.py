@@ -12,14 +12,9 @@ load_dotenv()
 
 # ----- Pull from To Do list -----
 
-async def pull_filtered_todo_list():
+async def pull_todo_list():
     """
-    Returns filtered list of To Do tasks to be completed from
-    today and onwards, in the form of:
-
-    [
-        ...
-    ]
+    Pulls all tasks from To Do list and uploads to PostgreSQL database
     """
     # TODO: replace this with logging to scheduler database table
     print(f"[{datetime.now()}] Job started")
