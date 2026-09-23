@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from googleapiclient.discovery import build
 from app.google_auth import get_credentials
+from app.scheduler import log_last_ran_time
 
 load_dotenv()
 
@@ -16,8 +17,8 @@ async def pull_todo_list():
     """
     Pulls all tasks from To Do list and uploads to PostgreSQL database
     """
-    # TODO: replace this with logging to scheduler database table
-    print(f"[{datetime.now()}] Job started")
+
+    log_last_ran_time("pull_todo_list")
 
     creds = get_credentials()
     spreadsheet_id = getenv("SIP_SHEET_ID")
@@ -50,8 +51,6 @@ async def pull_todo_list():
 
         if do_flag == "TRUE" and due_date >= today:
             do_tasks.append(row)
-    # TODO: replace this with logging to scheduler database table
-    print(f"[{datetime.now()}] Job finished")
 
     return {
         "today_onward": today_onward,

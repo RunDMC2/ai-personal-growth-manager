@@ -49,7 +49,7 @@ def start_job(job_id: str):
     """
     job = scheduler.get_job(job_id)
     if job:
-        scheduler.modify_job(job_id, next_run_time=datetime.now()) # runs immediately
+        scheduler.modify_job(job_id, next_run_time=datetime.now(tz=timezone.utc)) # runs immediately
         log_last_ran_time(job_id)
     else:
         raise ValueError(f"No job found with ID: {job_id}")
@@ -97,15 +97,12 @@ def log_last_ran_time(job_id: str):
     """
     Log the last ran time of a job to the database.
     """
-    job = scheduler.get_job(job_id)
-    if job:
-        last_ran_time = job.next_run_time
 
-        with db_cursor(commit=True) as cur:
-            cur.execute("""
-                INSERT INTO scheduler (job_id, last_ran)
-                VALUES (%s, %s)
-                ON CONFLICT (job_id)
-                DO UPDATE SET
-                    last_ran = EXCLUDED.last_ran
-            """, (job_id, datetime.now(tz=timezone.utc)))
+    with db_cursor(commit=True) as cur:
+        cur.execute("""
+            INSERT INTO scheduler (job_id, last_ran)
+            VALUES (%s, %s)
+            ON CONFLICT (job_id)
+            DO UPDATE SET
+                last_ran = EXCLUDED.last_ran
+        """, (job_id, datetime.now(tz=timezone.utc)))
