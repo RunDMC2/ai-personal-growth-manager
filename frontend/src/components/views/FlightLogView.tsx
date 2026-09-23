@@ -1,6 +1,19 @@
 "use client";
 
 import { dayLogs } from "../../ascent/data";
+import { useEffect } from "react";
+
+export function useScheduler(job_id: string) {
+  useEffect(() => {
+    fetch(`/api/scheduler/start/${job_id}`, { method: "POST" })
+
+    return () => {
+      navigator.sendBeacon(`/api/scheduler/stop/${job_id}`);
+    };
+  }, [job_id]);
+}
+
+useScheduler("update_todo_list");
 
 export default function FlightLogView() {
   return (
