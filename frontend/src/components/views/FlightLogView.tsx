@@ -13,9 +13,9 @@ export function useScheduler(job_id: string) {
   }, [job_id]);
 }
 
-useScheduler("update_todo_list");
-
 export default function FlightLogView() {
+  useScheduler("update_todo_list");
+  
   return (
     <div className="asc-view">
       <div className="asc-section-head">
