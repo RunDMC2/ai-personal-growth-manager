@@ -4,7 +4,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from app.routes.sheetRouter import router as sheet_router
-from app.scheduler import scheduler, register_jobs, router as scheduler_router
+from app.scheduler.scheduler import scheduler, register_jobs, router as scheduler_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
