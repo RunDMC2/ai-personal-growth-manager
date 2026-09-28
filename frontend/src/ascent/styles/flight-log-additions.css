@@ -1,32 +1,107 @@
-/* Add to the stylesheet that defines your .asc-* classes.
-   Fallback values are used where I couldn't see your CSS variables. */
+/* Flight Log additions. Fallback values are used where I couldn't see your CSS variables. */
+
+/* ----- Mode toggle: solid light blue / light pink ----- */
 
 .fl-toggle {
   display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
-  border-radius: 8px;
+  gap: 6px;
 }
 .fl-toggle button {
-  padding: 5px 12px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
+  padding: 6px 14px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: #1f2937;
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
 }
-.fl-toggle button[aria-selected="true"] {
-  background: var(--accent, rgba(128, 128, 128, 0.3));
-  color: var(--accent-contrast, inherit);
+
+/* Unselected: pale. Selected: deeper shade, darker ring, bold. */
+.fl-toggle .fl-toggle-due {
+  background: #dbeafe;
+}
+.fl-toggle .fl-toggle-due[aria-selected="true"] {
+  background: #93c5fd;
+  border-color: #3b82f6;
+  font-weight: 600;
+}
+
+.fl-toggle .fl-toggle-custom {
+  background: #fce7f3;
+}
+.fl-toggle .fl-toggle-custom[aria-selected="true"] {
+  background: #f9a8d4;
+  border-color: #ec4899;
+  font-weight: 600;
+}
+
+.fl-toggle button:hover:not([aria-selected="true"]) {
+  filter: brightness(0.95);
 }
 .fl-toggle button:focus-visible,
 .fl-move:focus-visible {
   outline: 2px solid var(--accent, currentColor);
   outline-offset: 2px;
 }
+
+/* ----- "Do" marker: red circle with an exclamation mark ----- */
+
+.fl-do {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-right: 2px; /* your .asc-log-task-left may already have a gap */
+  border-radius: 50%;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ----- Due-date color coding: backwards rainbow -----
+   Closer to the due date = further along violet, indigo, blue, green,
+   yellow, orange, red. --fl-rgb is set per urgency level below.
+   Tweak the alpha values (.12 row tint, .65 edge bar) to make it
+   more or less subtle. */
+
+[data-due="overdue"] { --fl-rgb: 239, 68, 68; }    /* red, stronger */
+[data-due="0"]       { --fl-rgb: 248, 113, 113; }  /* red    (today)  */
+[data-due="1"]       { --fl-rgb: 251, 146, 60; }   /* orange (1 day)  */
+[data-due="2"]       { --fl-rgb: 250, 204, 21; }   /* yellow (2 days) */
+[data-due="3"]       { --fl-rgb: 74, 222, 128; }   /* green  (3 days) */
+[data-due="4"]       { --fl-rgb: 96, 165, 250; }   /* blue   (4 days) */
+[data-due="5"]       { --fl-rgb: 129, 140, 248; }  /* indigo (5 days) */
+[data-due="6"]       { --fl-rgb: 167, 139, 250; }  /* violet (6+ days) */
+
+/* Row: soft tint plus a colored bar on the left edge.
+   The bar is an inset shadow, so it doesn't shift the layout. */
+.asc-log-task:not([data-due="done"]) {
+  background: rgba(var(--fl-rgb), 0.12);
+  box-shadow: inset 3px 0 0 rgba(var(--fl-rgb), 0.65);
+}
+.asc-log-task[data-due="overdue"] {
+  background: rgba(var(--fl-rgb), 0.18);
+}
+.asc-log-task {
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.asc-log-task[data-due="done"] {
+  opacity: 0.7;
+}
+
+/* Pill: same hue */
+.asc-log-task .asc-pill:not([data-due="done"]) {
+  background: rgba(var(--fl-rgb), 0.22);
+  color: rgb(var(--fl-rgb));
+}
+
+/* ----- Layout, drag and drop ----- */
 
 .fl-task-right {
   display: flex;
@@ -55,7 +130,6 @@
   opacity: 0.4;
 }
 
-/* Drop targets */
 .fl-pool {
   min-height: 56px;
   margin-bottom: 20px;

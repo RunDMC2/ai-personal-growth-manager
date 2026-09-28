@@ -1,6 +1,6 @@
 "use client";
 
-import "../../ascent/styles/flight-log-additions.css"
+import "../../ascent/styles/flight-log-additions.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ----- Scheduler hook (unchanged) -----
@@ -24,7 +24,7 @@ type Task = {
   id: number; // sheet row number
   do: boolean;
   done: boolean;
-  name: string;  // stand in for "task"
+  name: string; // stand in for "task"
   assigned_by: string;
   due_by: string; // YYYY-MM-DD
   est_time_rem: string;
@@ -63,14 +63,19 @@ function dayLabel(d: Date, i: number) {
   return `${d.toLocaleDateString("en-US", { weekday: "long" })}, ${short}`;
 }
 
+/**
+ * `urgency` drives the color coding (see the data-due rules in the CSS):
+ *   "overdue" and "0" = red, "1" = orange, "2" = yellow, "3" = green,
+ *   "4" = blue, "5" = indigo, "6" (6+ days out) = violet, "done" = no tint.
+ */
 function statusFor(task: Task, todayKey: string) {
-  if (task.done) return { status: "done", label: "Done" };
+  if (task.done) return { status: "done", label: "Done", urgency: "done" };
   const diff = Math.round(
     (parseKey(task.due_by).getTime() - parseKey(todayKey).getTime()) / 86_400_000
   );
-  if (diff < 0) return { status: "overdue", label: "Overdue" };
-  if (diff === 0) return { status: "today", label: "Due today" };
-  return { status: "upcoming", label: `Due in ${diff}d` };
+  if (diff < 0) return { status: "overdue", label: "Overdue", urgency: "overdue" };
+  if (diff === 0) return { status: "today", label: "Due today", urgency: "0" };
+  return { status: "upcoming", label: `Due in ${diff}d`, urgency: String(Math.min(diff, 6)) };
 }
 
 const sortTasks = (ts: Task[]) =>
@@ -134,16 +139,22 @@ function TaskRow(props: {
   moveControl?: React.ReactNode;
 }) {
   const { task, todayKey, draggable, isDragging, onDragStart, onDragEnd, moveControl } = props;
-  const { status, label } = statusFor(task, todayKey);
+  const { status, label, urgency } = statusFor(task, todayKey);
 
   return (
     <div
       className={`asc-log-task${draggable ? " fl-draggable" : ""}${isDragging ? " fl-dragging" : ""}`}
+      data-due={urgency}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
       <div className="asc-log-task-left">
+        {task.do && !task.done && (
+          <span className="fl-do" role="img" aria-label="Marked to do" title="Marked to do">
+            !
+          </span>
+        )}
         <div className={`asc-task-check${task.done ? " done" : ""}`} />
         <div className="asc-task-name">
           {task.name}
@@ -152,7 +163,9 @@ function TaskRow(props: {
       </div>
       <div className="fl-task-right">
         {moveControl}
-        <div className={`asc-pill ${status}`}>{label}</div>
+        <div className={`asc-pill ${status}`} data-due={urgency}>
+          {label}
+        </div>
       </div>
     </div>
   );
@@ -265,6 +278,7 @@ export default function FlightLogView() {
         <h2>{mode === "due" ? "Open this week" : "Plan your week"}</h2>
         <div className="fl-toggle" role="tablist" aria-label="View mode">
           <button
+            className="fl-toggle-due"
             role="tab"
             aria-selected={mode === "due"}
             onClick={() => setMode("due")}
@@ -272,6 +286,7 @@ export default function FlightLogView() {
             By due date
           </button>
           <button
+            className="fl-toggle-custom"
             role="tab"
             aria-selected={mode === "custom"}
             onClick={() => setMode("custom")}
