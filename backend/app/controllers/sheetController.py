@@ -13,6 +13,19 @@ from db.db_cursor import db_cursor
 
 load_dotenv()
 
+ 
+# ----- Sheet value helpers -----
+ 
+def _to_bool(v) -> bool:
+    """Sheets returns 'TRUE'/'FALSE' strings (or nothing for empty cells)."""
+    return str(v).strip().upper() == "TRUE"
+ 
+ 
+def _or_none(v):
+    """Empty sheet cells come back as '', which Postgres rejects for non-text columns."""
+    v = str(v).strip()
+    return v if v else None
+
 
 # ----- Pull from To Do list -----
 
@@ -37,13 +50,14 @@ async def pull_todo_list():
 
     today = date.today()
     today_onward, overdue, do_tasks = [], [], []
+    db_rows = []
+    updated_at = datetime.now(tz=timezone.utc)
 
-    for row in rows:
+
+    for sheet_row, row in enumerate(rows, start=2):
         # pad row in case trailing empty cells were dropped
         row = row + [""] * (8 - len(row))
-        do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on = row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]
-        updated_at = datetime.now(tz=timezone.utc)
-
+        do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on = row[:8]
         if not due_by:
             continue
         due_date = datetime.strptime(due_by, "%m/%d/%Y").date()
@@ -56,10 +70,23 @@ async def pull_todo_list():
         if do_flag == "TRUE" and due_date >= today:
             do_tasks.append(row)
 
+        db_rows.append((
+            sheet_row,
+            _to_bool(do_flag),
+            _to_bool(done_flag),
+            task,
+            assigned_by,
+            due_date,  # a real date, not the 'MM/DD/YYYY' string
+            _or_none(est_time_rem),
+            _or_none(days_rem),
+            _or_none(completed_on),
+            updated_at,
+        ))
+
         with db_cursor(commit=True) as cur:
             cur.execute("""
-                INSERT INTO to_do_tasks
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO to_do_tasks (row, "do", done, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (row)
                 DO UPDATE SET
                     "do" = EXCLUDED."do",
