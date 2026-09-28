@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from app.google_auth import get_credentials
 from app.scheduler.scheduler_log import log_last_ran_time
+from db.db_cursor import db_cursor
 
 load_dotenv()
 
@@ -38,7 +39,7 @@ async def pull_todo_list():
     for row in rows:
         # pad row in case trailing empty cells were dropped
         row = row + [""] * (8 - len(row))
-        do_flag, done_flag, task, assigned_by, due_by = row[0], row[1], row[2], row[3], row[4]
+        do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at = row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]
 
         if not due_by:
             continue
@@ -51,6 +52,24 @@ async def pull_todo_list():
 
         if do_flag == "TRUE" and due_date >= today:
             do_tasks.append(row)
+
+    with db_cursor(commit=True) as cur:
+        cur.execute("""
+            INSERT INTO to_do_tasks
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (row)
+            DO UPDATE SET
+                do = EXCLUDED.do,
+                done = EXCLUDED.done,
+                task = EXCLUDED.task,
+                assigned_by = EXCLUDED.assigned_by,
+                due_by = EXCLUDED.due_by,
+                est_time_rem = EXCLUDED.est_time_rem,
+                days_rem = EXCLUDED.days_rem,
+                completed_on = EXCLUDED.completed_on,
+                updated_at = EXCLUDED.updated_at
+        """, (do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at))
+
 
     return {
         "today_onward": today_onward,
