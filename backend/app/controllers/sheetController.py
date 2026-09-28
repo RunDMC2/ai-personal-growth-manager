@@ -98,7 +98,7 @@ async def pull_todo_list():
                     days_rem = EXCLUDED.days_rem,
                     completed_on = EXCLUDED.completed_on,
                     updated_at = EXCLUDED.updated_at
-            """, (do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at))
+            """, db_rows)
 
 
     return {
