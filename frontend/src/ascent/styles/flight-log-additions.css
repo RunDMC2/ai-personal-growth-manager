@@ -1,0 +1,95 @@
+/* Add to the stylesheet that defines your .asc-* classes.
+   Fallback values are used where I couldn't see your CSS variables. */
+
+.fl-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  border-radius: 8px;
+}
+.fl-toggle button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fl-toggle button[aria-selected="true"] {
+  background: var(--accent, rgba(128, 128, 128, 0.3));
+  color: var(--accent-contrast, inherit);
+}
+.fl-toggle button:focus-visible,
+.fl-move:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+
+.fl-task-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fl-move {
+  max-width: 150px;
+  padding: 3px 6px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.fl-draggable {
+  cursor: grab;
+}
+.fl-draggable:active {
+  cursor: grabbing;
+}
+.fl-dragging {
+  opacity: 0.4;
+}
+
+/* Drop targets */
+.fl-pool {
+  min-height: 56px;
+  margin-bottom: 20px;
+}
+.asc-log-day.fl-over,
+.fl-pool.fl-over {
+  background: rgba(128, 128, 128, 0.1);
+  outline: 1px dashed var(--accent, currentColor);
+  outline-offset: -1px;
+}
+
+.fl-empty {
+  padding: 10px 0;
+  font-size: 12px;
+  color: var(--text-dimmer);
+}
+
+.fl-error {
+  font-size: 13px;
+  margin: 0 0 12px;
+  color: var(--danger, #c0392b);
+}
+
+@media (max-width: 560px) {
+  .fl-task-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .asc-log-day,
+  .fl-pool {
+    transition: background 0.12s;
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import "./ascent/styles/flight-log-additions.css"
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // ----- Scheduler hook (unchanged) -----
