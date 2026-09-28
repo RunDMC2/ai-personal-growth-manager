@@ -167,7 +167,7 @@ def get_sheet_ids():
 # ----- Tasks for the frontend -----
  
 def _to_iso(v) -> str:
-    """due_by may be a DATE column or the raw 'MM/DD/YYYY' sheet string."""
+    """input may be a DATE column or the raw 'MM/DD/YYYY' sheet string."""
     if isinstance(v, datetime):
         return v.date().isoformat()
     if isinstance(v, date):
@@ -191,10 +191,14 @@ def get_tasks():
     return [
         {
             "id": r["row"],
-            "name": r["task"],
-            "category": r["assigned_by"],  # no category column exists, so assigned_by stands in
-            "dueDate": _to_iso(r["due_by"]),
+            "do": bool(r["do"]),
             "done": bool(r["done"]),
+            "name": r["task"],
+            "assigned_by": r["assigned_by"],  # no category column exists, so assigned_by stands in
+            "due_by": _to_iso(r["due_by"]),
+            "est_time_rem": r(["est_time_rem"]),
+            "days_rem": r(["days_rem"]),
+            "completed_on": _to_iso(r["completed_on"]) if _or_none(r["completed_on"]) else _or_none(r["completed_on"]),
             "scheduledFor": r["scheduled_for"].isoformat() if r["scheduled_for"] else None,
         }
         for r in rows

@@ -22,10 +22,14 @@ export function useScheduler(job_id: string) {
 
 type Task = {
   id: number; // sheet row number
-  name: string;
-  category: string;
+  do: boolean;
   done: boolean;
-  dueDate: string; // YYYY-MM-DD
+  name: string;  // stand in for "task"
+  assigned_by: string;
+  due_by: string; // YYYY-MM-DD
+  est_time_rem: string;
+  days_rem: string;
+  completed_on: string | null;
   scheduledFor: string | null; // YYYY-MM-DD, set in custom mode
 };
 
@@ -62,7 +66,7 @@ function dayLabel(d: Date, i: number) {
 function statusFor(task: Task, todayKey: string) {
   if (task.done) return { status: "done", label: "Done" };
   const diff = Math.round(
-    (parseKey(task.dueDate).getTime() - parseKey(todayKey).getTime()) / 86_400_000
+    (parseKey(task.due_by).getTime() - parseKey(todayKey).getTime()) / 86_400_000
   );
   if (diff < 0) return { status: "overdue", label: "Overdue" };
   if (diff === 0) return { status: "today", label: "Due today" };
@@ -70,7 +74,7 @@ function statusFor(task: Task, todayKey: string) {
 }
 
 const sortTasks = (ts: Task[]) =>
-  [...ts].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.name.localeCompare(b.name));
+  [...ts].sort((a, b) => a.due_by.localeCompare(b.due_by) || a.name.localeCompare(b.name));
 
 // ----- Data hook -----
 
@@ -143,7 +147,7 @@ function TaskRow(props: {
         <div className={`asc-task-check${task.done ? " done" : ""}`} />
         <div className="asc-task-name">
           {task.name}
-          <span className="asc-task-cat">{task.category}</span>
+          <span className="asc-task-cat">{task.assigned_by}</span>
         </div>
       </div>
       <div className="fl-task-right">
@@ -168,7 +172,7 @@ export default function FlightLogView() {
   const dayKeys = days.map(toKey);
   const todayKey = dayKeys[0];
 
-  const dueOn = (key: string) => sortTasks(tasks.filter((t) => t.dueDate === key));
+  const dueOn = (key: string) => sortTasks(tasks.filter((t) => t.due_by === key));
   const plannedOn = (key: string) => sortTasks(tasks.filter((t) => t.scheduledFor === key));
   const pool = sortTasks(
     tasks.filter((t) => !t.done && !(t.scheduledFor && dayKeys.includes(t.scheduledFor)))
