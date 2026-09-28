@@ -1,4 +1,6 @@
 from datetime import date, datetime, timezone
+from fastapi import HTTPException
+from pydantic import BaseModel
 
 import requests
 from os import getenv
@@ -134,3 +136,57 @@ def get_sheet_ids():
 
     return sheet_ids
 
+
+# ----- Tasks for the frontend -----
+ 
+def _to_iso(v) -> str:
+    """due_by may be a DATE column or the raw 'MM/DD/YYYY' sheet string."""
+    if isinstance(v, datetime):
+        return v.date().isoformat()
+    if isinstance(v, date):
+        return v.isoformat()
+    return datetime.strptime(v, "%m/%d/%Y").date().isoformat()
+ 
+ 
+def get_tasks():
+    """
+    Returns every task in the database as a flat list for the frontend:
+    [{id, name, category, dueDate, done, scheduledFor}, ...]
+    """
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT row, task, assigned_by, due_by, done, scheduled_for
+            FROM to_do_tasks
+            WHERE due_by IS NOT NULL AND due_by::text <> ''
+        """)
+        rows = cur.fetchall()
+ 
+    return [
+        {
+            "id": r[0],
+            "name": r[1],
+            "category": r[2],  # no category column exists, so assigned_by stands in
+            "dueDate": _to_iso(r[3]),
+            "done": r[4] == "TRUE",
+            "scheduledFor": r[5].isoformat() if r[5] else None,
+        }
+        for r in rows
+    ]
+
+
+class ScheduleBody(BaseModel):
+    scheduled_for: date | None = None
+ 
+def schedule_task(row: int, body: ScheduleBody):
+    """
+    Saves the day a task is planned for (custom mode). Send null to unschedule.
+    """
+    with db_cursor(commit=True) as cur:
+        cur.execute(
+            "UPDATE to_do_tasks SET scheduled_for = %s WHERE row = %s",
+            (body.scheduled_for, row),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"No task in row {row}")
+    return {"row": row, "scheduled_for": body.scheduled_for}
+ 

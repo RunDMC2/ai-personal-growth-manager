@@ -1,13 +1,14 @@
 "use client";
 
-import { dayLogs } from "../../ascent/data";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+// ----- Scheduler hook (unchanged) -----
 
 export function useScheduler(job_id: string) {
   useEffect(() => {
     const base_url = process.env.NEXT_PUBLIC_API_URL;
-    fetch(`${base_url}/scheduler/start/${job_id}`, { 
-      method: "POST" 
+    fetch(`${base_url}/scheduler/start/${job_id}`, {
+      method: "POST",
     }).catch((err) => console.error("Failed to start scheduler job:", err));
 
     return () => {
@@ -16,41 +17,298 @@ export function useScheduler(job_id: string) {
   }, [job_id]);
 }
 
+// ----- Types & date helpers -----
+
+type Task = {
+  id: number; // sheet row number
+  name: string;
+  category: string;
+  done: boolean;
+  dueDate: string; // YYYY-MM-DD
+  scheduledFor: string | null; // YYYY-MM-DD, set in custom mode
+};
+
+type Mode = "due" | "custom";
+
+const API = process.env.NEXT_PUBLIC_API_URL;
+const POOL = "pool";
+
+const toKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const parseKey = (k: string) => {
+  const [y, m, d] = k.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+function nextSevenDays(): Date[] {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+function dayLabel(d: Date, i: number) {
+  const short = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (i === 0) return `Today, ${short}`;
+  if (i === 1) return `Tomorrow, ${short}`;
+  return `${d.toLocaleDateString("en-US", { weekday: "long" })}, ${short}`;
+}
+
+function statusFor(task: Task, todayKey: string) {
+  if (task.done) return { status: "done", label: "Done" };
+  const diff = Math.round(
+    (parseKey(task.dueDate).getTime() - parseKey(todayKey).getTime()) / 86_400_000
+  );
+  if (diff < 0) return { status: "overdue", label: "Overdue" };
+  if (diff === 0) return { status: "today", label: "Due today" };
+  return { status: "upcoming", label: `Due in ${diff}d` };
+}
+
+const sortTasks = (ts: Task[]) =>
+  [...ts].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.name.localeCompare(b.name));
+
+// ----- Data hook -----
+
+function useTasks() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const tasksRef = useRef<Task[]>([]);
+  tasksRef.current = tasks;
+  const dragging = useRef(false); // skip polling while a drag is in progress
+
+  const load = useCallback(async () => {
+    if (dragging.current) return;
+    try {
+      const res = await fetch(`${API}/sheets/tasks`);
+      if (!res.ok) throw new Error(String(res.status));
+      setTasks(await res.json());
+      setError(null);
+    } catch {
+      setError("Couldn't load tasks. Retrying shortly.");
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 15_000); // matches the backend sync interval
+    return () => clearInterval(t);
+  }, [load]);
+
+  const schedule = useCallback(async (id: number, date: string | null) => {
+    const previous = tasksRef.current.find((t) => t.id === id)?.scheduledFor ?? null;
+    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, scheduledFor: date } : t)));
+    try {
+      const res = await fetch(`${API}/sheets/tasks/${id}/schedule`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduled_for: date }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+    } catch {
+      setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, scheduledFor: previous } : t)));
+      setError("Couldn't save that change. It was undone.");
+    }
+  }, []);
+
+  return { tasks, error, schedule, dragging };
+}
+
+// ----- Row -----
+
+function TaskRow(props: {
+  task: Task;
+  todayKey: string;
+  draggable: boolean;
+  isDragging: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  moveControl?: React.ReactNode;
+}) {
+  const { task, todayKey, draggable, isDragging, onDragStart, onDragEnd, moveControl } = props;
+  const { status, label } = statusFor(task, todayKey);
+
+  return (
+    <div
+      className={`asc-log-task${draggable ? " fl-draggable" : ""}${isDragging ? " fl-dragging" : ""}`}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <div className="asc-log-task-left">
+        <div className={`asc-task-check${task.done ? " done" : ""}`} />
+        <div className="asc-task-name">
+          {task.name}
+          <span className="asc-task-cat">{task.category}</span>
+        </div>
+      </div>
+      <div className="fl-task-right">
+        {moveControl}
+        <div className={`asc-pill ${status}`}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+// ----- View -----
+
 export default function FlightLogView() {
   useScheduler("update_todo_list");
+
+  const { tasks, error, schedule, dragging } = useTasks();
+  const [mode, setMode] = useState<Mode>("due");
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+
+  const days = nextSevenDays();
+  const dayKeys = days.map(toKey);
+  const todayKey = dayKeys[0];
+
+  const dueOn = (key: string) => sortTasks(tasks.filter((t) => t.dueDate === key));
+  const plannedOn = (key: string) => sortTasks(tasks.filter((t) => t.scheduledFor === key));
+  const pool = sortTasks(
+    tasks.filter((t) => !t.done && !(t.scheduledFor && dayKeys.includes(t.scheduledFor)))
+  );
+
+  function handleDrop(e: React.DragEvent, key: string) {
+    e.preventDefault();
+    setOverKey(null);
+    const id = Number(e.dataTransfer.getData("text/plain"));
+    const task = tasks.find((t) => t.id === id);
+    const target = key === POOL ? null : key;
+    if (task && task.scheduledFor !== target) schedule(id, target);
+  }
+
+  const zoneProps = (key: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setOverKey(key);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setOverKey(null);
+    },
+    onDrop: (e: React.DragEvent) => handleDrop(e, key),
+  });
+
+  const renderTask = (t: Task, draggable: boolean) => (
+    <TaskRow
+      key={t.id}
+      task={t}
+      todayKey={todayKey}
+      draggable={draggable}
+      isDragging={draggingId === t.id}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", String(t.id));
+        e.dataTransfer.effectAllowed = "move";
+        dragging.current = true;
+        setDraggingId(t.id);
+      }}
+      onDragEnd={() => {
+        dragging.current = false;
+        setDraggingId(null);
+        setOverKey(null);
+      }}
+      // Select is the keyboard and touch fallback for drag and drop
+      moveControl={
+        draggable ? (
+          <select
+            className="fl-move"
+            aria-label={`Schedule ${t.name}`}
+            value={t.scheduledFor && dayKeys.includes(t.scheduledFor) ? t.scheduledFor : ""}
+            onChange={(e) => schedule(t.id, e.target.value || null)}
+          >
+            <option value="">Unscheduled</option>
+            {days.map((d, i) => (
+              <option key={dayKeys[i]} value={dayKeys[i]}>
+                {dayLabel(d, i)}
+              </option>
+            ))}
+          </select>
+        ) : null
+      }
+    />
+  );
+
+  const renderDays = (getTasks: (key: string) => Task[], custom: boolean) =>
+    days.map((d, i) => {
+      const key = dayKeys[i];
+      const list = getTasks(key);
+      const isLast = i === days.length - 1;
+      return (
+        <div
+          className={`asc-log-day${custom && overKey === key ? " fl-over" : ""}`}
+          key={key}
+          style={isLast ? { borderLeftColor: "transparent", marginBottom: 0 } : undefined}
+          {...(custom ? zoneProps(key) : {})}
+        >
+          <div className="asc-log-day-label">{dayLabel(d, i)}</div>
+          {list.map((t) => renderTask(t, custom))}
+          {list.length === 0 && (
+            <div className="fl-empty">{custom ? "Drop a task here" : "Nothing due"}</div>
+          )}
+        </div>
+      );
+    });
 
   return (
     <div className="asc-view">
       <div className="asc-section-head">
-        <h2>Open this week</h2>
-        <span className="asc-section-note">Synced from your To Do sheet</span>
-      </div>
-      <div className="asc-card">
-        {dayLogs.map((log, i) => (
-          <div
-            className="asc-log-day"
-            key={log.day}
-            style={i === dayLogs.length - 1 ? { borderLeftColor: "transparent", marginBottom: 0 } : undefined}
+        <h2>{mode === "due" ? "Open this week" : "Plan your week"}</h2>
+        <div className="fl-toggle" role="tablist" aria-label="View mode">
+          <button
+            role="tab"
+            aria-selected={mode === "due"}
+            onClick={() => setMode("due")}
           >
-            <div className="asc-log-day-label">{log.day}</div>
-            {log.tasks.map((task) => (
-              <div className="asc-log-task" key={task.id}>
-                <div className="asc-log-task-left">
-                  <div className={`asc-task-check${task.done ? " done" : ""}`} />
-                  <div className="asc-task-name">
-                    {task.name}
-                    <span className="asc-task-cat">{task.category}</span>
-                  </div>
-                </div>
-                <div className={`asc-pill ${task.status}`}>{task.statusLabel}</div>
-              </div>
-            ))}
-          </div>
-        ))}
+            By due date
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === "custom"}
+            onClick={() => setMode("custom")}
+          >
+            Custom
+          </button>
+        </div>
       </div>
+
+      {error && (
+        <p className="fl-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {mode === "custom" && (
+        <>
+          <div className="asc-section-head">
+            <h2>Unscheduled</h2>
+            <span className="asc-section-note">{pool.length} to place</span>
+          </div>
+          <div
+            className={`asc-card fl-pool${overKey === POOL ? " fl-over" : ""}`}
+            {...zoneProps(POOL)}
+          >
+            {pool.map((t) => renderTask(t, true))}
+            {pool.length === 0 && <div className="fl-empty">Everything is scheduled.</div>}
+          </div>
+          <div className="asc-section-head">
+            <h2>Next 7 days</h2>
+          </div>
+        </>
+      )}
+
+      <div className="asc-card">
+        {mode === "due" ? renderDays(dueOn, false) : renderDays(plannedOn, true)}
+      </div>
+
       <p style={{ fontSize: 12, color: "var(--text-dimmer)", marginTop: 14 }}>
-        Tasks are logged and checked off in your sheet — this view just keeps score. To add or edit a task, open
-        growth-log.xlsx.
+        {mode === "due"
+          ? "Tasks are logged and checked off in your sheet — this view just keeps score. To add or edit a task, open growth-log.xlsx."
+          : "Drag tasks onto a day, or use the menu on each task. Your plan is saved here, not in the sheet."}
       </p>
     </div>
   );
