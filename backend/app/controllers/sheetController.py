@@ -60,7 +60,7 @@ async def pull_todo_list():
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (row)
                 DO UPDATE SET
-                    do = EXCLUDED.do,
+                    "do" = EXCLUDED."do",
                     done = EXCLUDED.done,
                     task = EXCLUDED.task,
                     assigned_by = EXCLUDED.assigned_by,
