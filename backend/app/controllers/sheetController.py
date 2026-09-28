@@ -168,6 +168,8 @@ def get_sheet_ids():
  
 def _to_iso(v) -> str:
     """input may be a DATE column or the raw 'MM/DD/YYYY' sheet string."""
+    if v is None:
+        return None
     if isinstance(v, datetime):
         return v.date().isoformat()
     if isinstance(v, date):
@@ -198,7 +200,7 @@ def get_tasks():
             "due_by": _to_iso(r["due_by"]),
             "est_time_rem": r["est_time_rem"],
             "days_rem": r["days_rem"],
-            "completed_on": _to_iso(r["completed_on"]) if _or_none(r["completed_on"]) else _or_none(r["completed_on"]),
+            "completed_on": _to_iso(r["completed_on"]),
             "scheduledFor": r["scheduled_for"].isoformat() if r["scheduled_for"] else None,
         }
         for r in rows
