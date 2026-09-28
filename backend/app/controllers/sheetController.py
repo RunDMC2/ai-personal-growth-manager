@@ -190,12 +190,12 @@ def get_tasks():
  
     return [
         {
-            "id": r[0],
-            "name": r[1],
-            "category": r[2],  # no category column exists, so assigned_by stands in
-            "dueDate": _to_iso(r[3]),
-            "done": r[4] == "TRUE",
-            "scheduledFor": r[5].isoformat() if r[5] else None,
+            "id": r["row"],
+            "name": r["task"],
+            "category": r["assigned_by"],  # no category column exists, so assigned_by stands in
+            "dueDate": _to_iso(r["due_by"]),
+            "done": bool(r["done"]),
+            "scheduledFor": r["scheduled_for"].isoformat() if r["scheduled_for"] else None,
         }
         for r in rows
     ]
