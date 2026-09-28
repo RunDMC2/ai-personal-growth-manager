@@ -54,22 +54,22 @@ async def pull_todo_list():
         if do_flag == "TRUE" and due_date >= today:
             do_tasks.append(row)
 
-    with db_cursor(commit=True) as cur:
-        cur.execute("""
-            INSERT INTO to_do_tasks
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (row)
-            DO UPDATE SET
-                do = EXCLUDED.do,
-                done = EXCLUDED.done,
-                task = EXCLUDED.task,
-                assigned_by = EXCLUDED.assigned_by,
-                due_by = EXCLUDED.due_by,
-                est_time_rem = EXCLUDED.est_time_rem,
-                days_rem = EXCLUDED.days_rem,
-                completed_on = EXCLUDED.completed_on,
-                updated_at = EXCLUDED.updated_at
-        """, (do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at))
+        with db_cursor(commit=True) as cur:
+            cur.execute("""
+                INSERT INTO to_do_tasks
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (row)
+                DO UPDATE SET
+                    do = EXCLUDED.do,
+                    done = EXCLUDED.done,
+                    task = EXCLUDED.task,
+                    assigned_by = EXCLUDED.assigned_by,
+                    due_by = EXCLUDED.due_by,
+                    est_time_rem = EXCLUDED.est_time_rem,
+                    days_rem = EXCLUDED.days_rem,
+                    completed_on = EXCLUDED.completed_on,
+                    updated_at = EXCLUDED.updated_at
+            """, (do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at))
 
 
     return {
