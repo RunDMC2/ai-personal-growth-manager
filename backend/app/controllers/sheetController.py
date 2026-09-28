@@ -40,6 +40,7 @@ async def pull_todo_list():
         # pad row in case trailing empty cells were dropped
         row = row + [""] * (8 - len(row))
         do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on = row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]
+        updated_at = datetime.now(tz=timezone.utc)
 
         if not due_by:
             continue
@@ -68,7 +69,7 @@ async def pull_todo_list():
                 days_rem = EXCLUDED.days_rem,
                 completed_on = EXCLUDED.completed_on,
                 updated_at = EXCLUDED.updated_at
-        """, (do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, datetime.now(tz=timezone.utc)))
+        """, (do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at))
 
 
     return {
