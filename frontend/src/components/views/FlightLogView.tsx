@@ -149,12 +149,13 @@ function TaskRow(props: {
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
+      {/* Absolutely positioned in the row's left padding, so it never shifts the checkbox */}
+      {task.do && !task.done && (
+        <span className="fl-do" role="img" aria-label="Marked to do" title="Marked to do">
+          !
+        </span>
+      )}
       <div className="asc-log-task-left">
-        {task.do && !task.done && (
-          <span className="fl-do" role="img" aria-label="Marked to do" title="Marked to do">
-            !
-          </span>
-        )}
         <div className={`asc-task-check${task.done ? " done" : ""}`} />
         <div className="asc-task-name">
           {task.name}

@@ -47,14 +47,18 @@
 
 /* ----- "Do" marker: red circle with an exclamation mark ----- */
 
+/* Sits in the row's left padding, out of the flex flow, so checkboxes
+   stay in one vertical line whether or not a task has the marker. */
 .fl-do {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   width: 18px;
   height: 18px;
-  margin-right: 2px; /* your .asc-log-task-left may already have a gap */
   border-radius: 50%;
   background: #ef4444;
   color: #fff;
@@ -87,8 +91,19 @@
 .asc-log-task[data-due="overdue"] {
   background: rgba(var(--fl-rgb), 0.18);
 }
+/* Row spacing. Tweak these three numbers to taste:
+   --fl-bleed      how far the colored box extends left past the text column
+   --fl-pad-left   space from the box's left edge to the checkbox
+                   (leaves room for the "do" marker)
+   --fl-pad-right  space between the due-date pill and the box's right edge */
 .asc-log-task {
-  padding: 6px 10px;
+  --fl-bleed: 10px;
+  --fl-pad-left: 34px;
+  --fl-pad-right: 18px;
+
+  position: relative;
+  margin-left: calc(var(--fl-bleed) * -1);
+  padding: 6px var(--fl-pad-right) 6px var(--fl-pad-left);
   border-radius: 6px;
 }
 .asc-log-task[data-due="done"] {
