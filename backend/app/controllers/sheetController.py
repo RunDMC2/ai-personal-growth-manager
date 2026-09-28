@@ -57,7 +57,7 @@ async def pull_todo_list():
         with db_cursor(commit=True) as cur:
             cur.execute("""
                 INSERT INTO to_do_tasks
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (row)
                 DO UPDATE SET
                     do = EXCLUDED.do,
