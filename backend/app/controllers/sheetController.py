@@ -83,22 +83,22 @@ async def pull_todo_list():
             updated_at,
         ))
 
-        with db_cursor(commit=True) as cur:
-            cur.execute("""
-                INSERT INTO to_do_tasks (row, "do", done, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (row)
-                DO UPDATE SET
-                    "do" = EXCLUDED."do",
-                    done = EXCLUDED.done,
-                    task = EXCLUDED.task,
-                    assigned_by = EXCLUDED.assigned_by,
-                    due_by = EXCLUDED.due_by,
-                    est_time_rem = EXCLUDED.est_time_rem,
-                    days_rem = EXCLUDED.days_rem,
-                    completed_on = EXCLUDED.completed_on,
-                    updated_at = EXCLUDED.updated_at
-            """, db_rows)
+    with db_cursor(commit=True) as cur:
+        cur.executemany("""
+            INSERT INTO to_do_tasks (row, "do", done, task, assigned_by, due_by, est_time_rem, days_rem, completed_on, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (row)
+            DO UPDATE SET
+                "do" = EXCLUDED."do",
+                done = EXCLUDED.done,
+                task = EXCLUDED.task,
+                assigned_by = EXCLUDED.assigned_by,
+                due_by = EXCLUDED.due_by,
+                est_time_rem = EXCLUDED.est_time_rem,
+                days_rem = EXCLUDED.days_rem,
+                completed_on = EXCLUDED.completed_on,
+                updated_at = EXCLUDED.updated_at
+        """, db_rows)
 
 
     return {
