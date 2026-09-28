@@ -177,12 +177,12 @@ def _to_iso(v) -> str:
  
 def get_tasks():
     """
-    Returns every task in the database as a flat list for the frontend:
-    [{id, name, category, dueDate, done, scheduledFor}, ...]
+    Returns every task in the database as a flat list for the frontend
+    [{row, do, done, task, assigned_by, due_by}, ...]
     """
     with db_cursor() as cur:
         cur.execute("""
-            SELECT row, task, assigned_by, due_by, done, scheduled_for
+            SELECT *
             FROM to_do_tasks
             WHERE due_by IS NOT NULL AND due_by::text <> ''
         """)
