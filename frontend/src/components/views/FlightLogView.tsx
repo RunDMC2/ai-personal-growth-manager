@@ -182,6 +182,18 @@ export default function FlightLogView() {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
 
+  // Fallback for drags that end outside any drop zone (e.g. dropped on the
+  // page background, or cancelled with Esc) — "dragend" always fires on
+  // window even when the row itself has already unmounted.
+  useEffect(() => {
+    const clear = () => {
+      setDraggingId(null);
+      dragging.current = false;
+    };
+    window.addEventListener("dragend", clear);
+    return () => window.removeEventListener("dragend", clear);
+  }, [dragging]);
+
   const days = nextSevenDays();
   const dayKeys = days.map(toKey);
   const todayKey = dayKeys[0];
@@ -195,6 +207,8 @@ export default function FlightLogView() {
   function handleDrop(e: React.DragEvent, key: string) {
     e.preventDefault();
     setOverKey(null);
+    setDraggingId(null); // the row may re-render into a different list before its own
+    dragging.current = false; // dragend event would fire, so clear the state here too
     const id = Number(e.dataTransfer.getData("text/plain"));
     const task = tasks.find((t) => t.id === id);
     const target = key === POOL ? null : key;
