@@ -204,7 +204,7 @@ function TaskRow(props: {
       </div>
       <div className="fl-task-right">
         {moveControl}
-        {hours !== null && (
+        {hours !== null && !task.done && (
           <div className="asc-pill" data-est={estUrgency(hours)} title={task.est_time_rem}>
             {formatHours(hours)}
           </div>
