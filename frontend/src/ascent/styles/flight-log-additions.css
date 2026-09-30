@@ -91,6 +91,21 @@
 .asc-log-task[data-due="overdue"] {
   background: rgba(var(--fl-rgb), 0.18);
 }
+
+/* ----- Est. time remaining pill: green (quick) -> red (a day or more) -----
+   Separate variable from --fl-rgb so it never fights the due-date tint,
+   since both can appear on the same row. */
+
+[data-est="3"] { --fl-est-rgb: 74, 222, 128; }  /* green  (< 1 hour)  */
+[data-est="2"] { --fl-est-rgb: 250, 204, 21; }  /* yellow (1-4 hours) */
+[data-est="1"] { --fl-est-rgb: 251, 146, 60; }  /* orange (4-24 hours)*/
+[data-est="0"] { --fl-est-rgb: 239, 68, 68; }   /* red    (1+ days)   */
+
+.asc-pill[data-est] {
+  background: rgba(var(--fl-est-rgb), 0.22);
+  color: rgb(var(--fl-est-rgb));
+}
+
 /* Row spacing. Tweak these three numbers to taste:
    --fl-bleed      how far the colored box extends left past the text column
    --fl-pad-left   space from the box's left edge to the checkbox

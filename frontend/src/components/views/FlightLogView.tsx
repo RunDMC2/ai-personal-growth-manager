@@ -78,6 +78,45 @@ function statusFor(task: Task, todayKey: string) {
   return { status: "upcoming", label: `Due in ${diff}d`, urgency: String(Math.min(diff, 6)) };
 }
 
+/**
+ * Parses est_time_rem into hours. Handles free-text values like "2 hours",
+ * "90 minutes", "3 days", "1+ days", "2.5h", or a bare number (assumed
+ * hours). "+" is treated as an open-ended minimum — "1+ days" becomes 24h,
+ * same as a flat "1 day" — since that's the safest lower-bound estimate
+ * for coloring. Returns null for empty/unparseable values, which hides
+ * the pill.
+ */
+function parseHours(v: string | null | undefined): number | null {
+  if (!v || !v.trim()) return null;
+  const s = v.toLowerCase();
+  const numMatch = s.match(/[\d.]+/);
+  if (!numMatch) return null;
+  const num = parseFloat(numMatch[0]);
+  if (!Number.isFinite(num)) return null;
+
+  if (s.includes("day")) return num * 24;
+  if (s.includes("h")) return num; // "hour"/"hours"/"h" all contain "h"
+  if (s.includes("min") || /\dm\b/.test(s)) return num / 60;
+  return num; // bare number, assume hours
+}
+
+/**
+ * Buckets hours into the same color scale as the due-date pill, but in
+ * the opposite direction: quick tasks are green, long ones are red.
+ */
+function estUrgency(hours: number): string {
+  if (hours < 1) return "3"; // green
+  if (hours < 4) return "2"; // yellow
+  if (hours < 24) return "1"; // orange
+  return "0"; // red — a day or more
+}
+
+function formatHours(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours >= 24 && hours % 24 === 0) return `${hours / 24}d`;
+  return hours % 1 === 0 ? `${hours}h` : `${hours.toFixed(1)}h`;
+}
+
 const sortTasks = (ts: Task[]) =>
   [...ts].sort((a, b) => a.due_by.localeCompare(b.due_by) || a.name.localeCompare(b.name));
 
@@ -140,6 +179,7 @@ function TaskRow(props: {
 }) {
   const { task, todayKey, draggable, isDragging, onDragStart, onDragEnd, moveControl } = props;
   const { status, label, urgency } = statusFor(task, todayKey);
+  const hours = parseHours(task.est_time_rem);
 
   return (
     <div
@@ -164,6 +204,11 @@ function TaskRow(props: {
       </div>
       <div className="fl-task-right">
         {moveControl}
+        {hours !== null && (
+          <div className="asc-pill" data-est={estUrgency(hours)} title={task.est_time_rem}>
+            {formatHours(hours)}
+          </div>
+        )}
         <div className={`asc-pill ${status}`} data-due={urgency}>
           {label}
         </div>
