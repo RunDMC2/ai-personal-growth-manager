@@ -186,10 +186,39 @@
 .ascent-app .asc-log-day:last-child{margin-bottom:0;}
 .ascent-app .asc-log-day::before{content:""; position:absolute; left:-6px; top:3px; width:10px; height:10px; background:linear-gradient(135deg, var(--pink), var(--purple)); border:2px solid var(--surface);}
 .ascent-app .asc-log-day-label{font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dimmer); margin-bottom:10px;}
-.ascent-app .asc-log-task{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:9px 0; border-bottom:1px dashed var(--border);}
+.ascent-app .asc-log-task {
+  --fl-pad-left: 30px;
+  --fl-pad-right: 30px;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 6px var(--fl-pad-right) 6px var(--fl-pad-left);
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: 6px;
+}
+.ascent-app .asc-log-task:has(.asc-pill.done) {
+  border-left: 3px solid var(--text-dimmer);
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(14, 165, 233, 0.025),
+      rgba(124, 77, 255, 0.025),
+      rgba(236, 72, 153, 0.025)
+    ) padding-box,
+    linear-gradient(
+      90deg,
+      rgba(14, 165, 233, 0.25),
+      rgba(124, 77, 255, 0.15),
+      rgba(236, 72, 153, 0.35)
+    ) border-box;
+}
 .ascent-app .asc-log-day > .asc-log-task:last-child{border-bottom:none;}
 .ascent-app .asc-log-task-left{display:flex; gap:12px; align-items:flex-start;}
-.ascent-app .asc-task-check{width:15px; height:15px; margin-top:2px; border:1.5px solid var(--text-dimmer); flex:none;}
+.ascent-app .asc-task-check{width:15px; height:15px; border:1.5px solid var(--text-dimmer); flex:none; align-self: center;}
 .ascent-app .asc-task-check.done{background:linear-gradient(135deg, var(--pink), var(--blue)); border-color:transparent; position:relative;}
 .ascent-app .asc-task-check.done::after{content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; font-weight:700;}
 .ascent-app .asc-task-name{font-size:14px; line-height:1.4;}

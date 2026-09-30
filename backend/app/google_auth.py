@@ -24,6 +24,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CREDENTIALS_FILE = os.path.join(BASE_DIR, "credentials.json")
 TOKEN_FILE = os.path.join(BASE_DIR, "token.json")
 
+from google.auth.exceptions import RefreshError
 
 def get_credentials():
     """Return valid OAuth credentials, refreshing or regenerating as needed."""
@@ -34,8 +35,13 @@ def get_credentials():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except RefreshError:
+                # refresh token itself is expired/revoked — fall back to full re-auth
+                creds = None
+
+        if not creds or not creds.valid:
             flow = InstalledAppFlow.from_client_secrets_file(
                 CREDENTIALS_FILE, SCOPES
             )
@@ -46,7 +52,6 @@ def get_credentials():
             token.write(creds.to_json())
 
     return creds
-
 
 if __name__ == "__main__":
     # for initial setup, run this script to generate token.json

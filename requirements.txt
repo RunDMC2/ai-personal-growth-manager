@@ -2,3 +2,6 @@ fastapi[standard]
 google-api-python-client>=2.100.0
 google-auth-httplib2>=0.2.0
 google-auth-oauthlib>=1.2.0
+python-dotenv==1.0.1
+uvicorn[standard]==0.30.6
+APScheduler==3.10.4
