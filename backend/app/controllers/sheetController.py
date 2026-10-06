@@ -58,7 +58,7 @@ async def pull_todo_list():
         # pad row in case trailing empty cells were dropped
         row = row + [""] * (8 - len(row))
         do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on = row[:8]
-        if not due_by:
+        if not due_by:  # TODO: May need to fix later in the case of writing a task then deleting it 
             continue
         due_date = datetime.strptime(due_by, "%m/%d/%Y").date()
 
