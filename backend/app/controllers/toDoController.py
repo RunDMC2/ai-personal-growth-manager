@@ -99,6 +99,7 @@ async def pull_todo_list():
                 updated_at = EXCLUDED.updated_at
         """, db_rows)
 
+    update_task_counts()  # update counts of done tasks for each day, and amount of tasks to do for current day; uploads to database
 
     return {
         "today_onward": today_onward,
@@ -165,4 +166,86 @@ def schedule_task(row: int, body: ScheduleBody):
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail=f"No task in row {row}")
     return {"row": row, "scheduled_for": body.scheduled_for}
+
+
+def update_task_counts():
+    """
+    Updates count of done tasks for each day, and amount of tasks to do for current day; uploads to database.
+    """
+
+    # Update done tasks counts for each day
+    with db_cursor(commit=True) as cur:
+        cur.execute("""
+            INSERT INTO done_tasks_counts (date, count)
+            SELECT 
+                DATE(completed_on) AS date,
+                COUNT(*) AS count
+            FROM to_do_tasks
+            WHERE done = true
+            GROUP BY DATE(completed_on)
+            ON CONFLICT (date) DO UPDATE
+            SET count = EXCLUDED.count;
+        """)
+
+    with db_cursor(commit=True) as cur:
+        # Update counts for "Do" tasks, Overdue tasks, and all to do tasks
+        cur.execute("""
+            WITH task_counts AS (
+                SELECT 'All undone tasks' AS task_type, COUNT(*) AS count
+                FROM to_do_tasks
+                WHERE done = false
+                
+                UNION ALL
+                
+                SELECT 'Tasks marked Do', COUNT(*)
+                FROM to_do_tasks
+                WHERE "do" = true AND done = false
+                
+                UNION ALL
+                
+                SELECT 'Tasks marked Overdue', COUNT(*)
+                FROM to_do_tasks
+                WHERE days_rem LIKE '%Overdue%'
+
+                UNION ALL
+
+                SELECT 'All completed tasks', COUNT(*)
+                FROM to_do_tasks
+                WHERE done = true
+            )
+            UPDATE current_tasks_counts
+            SET count = task_counts.count
+            FROM task_counts
+            WHERE current_tasks_counts.task_type = task_counts.task_type;
+        """)
+
+    return {"message": "Task counts updated successfully."}
+
+
+def get_task_counts():
+    """
+    Returns the current counts of done tasks for each day, and amount of tasks to do for current day.
+    """
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT *
+            FROM current_tasks_counts
+        """)
+        rows = cur.fetchall()
+
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT count
+            FROM done_tasks_counts
+            WHERE date = CURRENT_DATE;
+        """)
+        rows.append(cur.fetchone())  # Append today's done tasks count to the list
+
+    return [
+        {
+            "task_type": r["task_type"],
+            "count": r["count"],
+        }
+        for r in rows
+    ]
  
