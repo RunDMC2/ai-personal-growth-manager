@@ -2,7 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
-from app.controllers.sheetController import pull_todo_list
+from app.controllers.toDoController import pull_todo_list
 from app.scheduler.scheduler_log import log_last_ran_time
 
 scheduler = AsyncIOScheduler()
