@@ -132,7 +132,7 @@ function useTasks() {
   const load = useCallback(async () => {
     if (dragging.current) return;
     try {
-      const res = await fetch(`${API}/sheets/tasks`);
+      const res = await fetch(`${API}/sheets/to-do/tasks`);
       if (!res.ok) throw new Error(String(res.status));
       setTasks(await res.json());
       setError(null);
@@ -151,7 +151,7 @@ function useTasks() {
     const previous = tasksRef.current.find((t) => t.id === id)?.scheduledFor ?? null;
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, scheduledFor: date } : t)));
     try {
-      const res = await fetch(`${API}/sheets/tasks/${id}/schedule`, {
+      const res = await fetch(`${API}/sheets/to-do/tasks/${id}/schedule`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scheduled_for: date }),

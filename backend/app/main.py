@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 import uvicorn
 
-from app.routes.toDoRouter import router as sheet_router
+from app.routes.toDoRouter import router as to_do_router
+from app.routes.sheetsRouter import router as sheets_router
 from app.scheduler.scheduler import scheduler, register_jobs, router as scheduler_router
 
 @asynccontextmanager
@@ -26,7 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(sheet_router)
+app.include_router(to_do_router)
+app.include_router(sheets_router)
 app.include_router(scheduler_router)
 
 
