@@ -237,9 +237,9 @@ def get_task_counts():
         cur.execute("""
             SELECT count
             FROM done_tasks_counts
-            WHERE date = CURRENT_DATE;
-        """)
-        rows.append(cur.fetchone())  # Append today's done tasks count to the list
+            WHERE "date" = %s;
+        """, (date.today(),))
+        rows.append({"task_type": "Tasks done today"} | cur.fetchone())  # Append today's done tasks count to the list
 
     return [
         {
