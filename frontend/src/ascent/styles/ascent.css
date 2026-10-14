@@ -347,6 +347,14 @@
   .ascent-app .asc-alt-status{transition:none;}
 }
 
+/* ---------- Loading, error, retry ---------- */
+.ascent-app .asc-alt-error{margin:0 0 14px; font-size:13px; color:var(--pink-text);}
+.ascent-app .asc-alt-retry{
+  margin-top:14px; padding:6px 14px; border:2px solid #3b82f6; border-radius:8px;
+  background:#93c5fd; color:#1f2937; font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+}
+.ascent-app .asc-alt-retry:focus-visible{outline:2px solid var(--purple); outline-offset:2px;}
+
 /* ---------- Turbulence ---------- */
 .ascent-app .asc-turbulence-layout{display:grid; grid-template-columns:1fr; gap:14px;}
 .ascent-app .asc-turbulence-row{display:grid; grid-template-columns:1.6fr 1fr; gap:14px;}

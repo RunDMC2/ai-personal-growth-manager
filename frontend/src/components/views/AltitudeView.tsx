@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
-/* ---------- Types & sample data (swap for ../../ascent/data + types) ---------- */
+/* ---------- Types ---------- */
 
 type ViewMode = "weekly" | "daily";
 
@@ -14,13 +14,18 @@ export interface WeeklyGoal {
   days: boolean[];
 }
 
-const SAMPLE_GOALS: WeeklyGoal[] = [
-  { id: "g1", title: "Ship portfolio site", color: "#6B32E0", days: [true, true, false, false, false, false, false] },
-  { id: "g2", title: "Run a 5K", color: "#0879AD", days: [true, false, true, false, false, false, false] },
-  { id: "g3", title: "Read 20 pages", color: "#C22B76", days: [true, true, true, false, false, false, false] },
-  { id: "g4", title: "Practice Spanish", color: "#B8741A", days: [false, true, true, false, false, false, false] },
-  { id: "g5", title: "Save $500", color: "#2E8B6A", days: [true, false, false, false, false, false, false] },
-];
+const FALLBACK_COLORS = ["#C22B76", "#B8741A", "#2E8B6A", "#0879AD", "#6B32E0"];
+
+/** Shapes whatever your API returns into WeeklyGoal[]. Adjust the field names to match your endpoint. */
+function normalizeGoals(data: unknown): WeeklyGoal[] {
+  if (!Array.isArray(data)) return [];
+  return data.slice(0, 5).map((g, i) => ({
+    id: String(g.id),
+    title: String(g.title ?? "Untitled goal"),
+    color: typeof g.color === "string" ? g.color : FALLBACK_COLORS[i % FALLBACK_COLORS.length],
+    days: Array.from({ length: 7 }, (_, d) => Boolean(g.days?.[d])),
+  }));
+}
 
 const DAY_LETTERS = ["M", "T", "W", "R", "F", "S", "S"];
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -30,6 +35,7 @@ const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 interface Week {
   todayIdx: number; // 0 = Monday
   dates: number[]; // day-of-month for Mon..Sun
+  isos: string[]; // YYYY-MM-DD for Mon..Sun, local time
 }
 
 function getWeek(): Week {
@@ -37,12 +43,17 @@ function getWeek(): Week {
   const todayIdx = (now.getDay() + 6) % 7;
   const monday = new Date(now);
   monday.setDate(now.getDate() - todayIdx);
-  const dates = Array.from({ length: 7 }, (_, i) => {
+  const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return d.getDate();
+    return d;
   });
-  return { todayIdx, dates };
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    todayIdx,
+    dates: days.map((d) => d.getDate()),
+    isos: days.map((d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`),
+  };
 }
 
 /* ---------- Animation helpers ---------- */
@@ -92,10 +103,15 @@ interface GoalRingProps {
   mode: ViewMode;
   dayIdx: number;
   todayIdx: number;
-  ready: boolean;
 }
 
-function GoalRing({ goal, mode, dayIdx, todayIdx, ready }: GoalRingProps) {
+function GoalRing({ goal, mode, dayIdx, todayIdx }: GoalRingProps) {
+  // Each ring flips this after it mounts, so it sweeps in even when the data arrives late.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(id);
+  }, []);
   const count = goal.days.filter(Boolean).length;
   const shown = useCountUp(count);
   const weekly = mode === "weekly";
@@ -164,16 +180,22 @@ function GoalRing({ goal, mode, dayIdx, todayIdx, ready }: GoalRingProps) {
 /* ---------- View ---------- */
 
 interface AltitudeViewProps {
-  initialGoals?: WeeklyGoal[]; // 0–5 goals
-  onToggleDay?: (goalId: string, dayIdx: number, worked: boolean) => void;
+  /** GET returns goals for the week (?weekStart=YYYY-MM-DD). PUT `${endpoint}/:id/log` saves a day. */
+  endpoint?: string;
 }
 
-export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay }: AltitudeViewProps) {
-  const [goals, setGoals] = useState<WeeklyGoal[]>(initialGoals.slice(0, 5));
+const base_url = process.env.NEXT_PUBLIC_API_URL;
+
+type LoadStatus = "loading" | "ready" | "error";
+
+export default function AltitudeView({ endpoint = `${base_url}/goals` }: AltitudeViewProps) {
+  const [goals, setGoals] = useState<WeeklyGoal[]>([]);
+  const [status, setStatus] = useState<LoadStatus>("loading");
+  const [saveError, setSaveError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [mode, setMode] = useState<ViewMode>("weekly");
   const [week, setWeek] = useState<Week | null>(null);
   const [dayIdx, setDayIdx] = useState(0);
-  const [ready, setReady] = useState(false);
 
   // Computed after mount so server and client dates can't cause a hydration mismatch.
   useEffect(() => {
@@ -182,23 +204,49 @@ export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay 
     setDayIdx(w.todayIdx);
   }, []);
 
-  // Flip after first paint so rings sweep in on load.
+  // Fetch this week's goals once the week is known (and again if endpoint changes or Try again is pressed).
   useEffect(() => {
-    const id = setTimeout(() => setReady(true), 60);
-    return () => clearTimeout(id);
-  }, []);
+    if (!week) return;
+    const ctrl = new AbortController();
+    setStatus("loading");
+    (async () => {
+      try {
+        const res = await fetch(`${endpoint}?weekStart=${week.isos[0]}`, { signal: ctrl.signal });
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+        setGoals(normalizeGoals(await res.json()));
+        setStatus("ready");
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") setStatus("error");
+      }
+    })();
+    return () => ctrl.abort(); // cancels the request on unmount (and on React Strict Mode's dev re-run)
+  }, [week, endpoint, reloadKey]);
 
   const todayIdx = week?.todayIdx ?? -1;
 
-  const toggle = (goal: WeeklyGoal) => {
-    if (dayIdx > todayIdx) return; // can't log the future
+  // Optimistic update: flip the day now, save in the background, undo if the save fails.
+  const toggle = async (goal: WeeklyGoal) => {
+    if (!week || dayIdx > todayIdx) return; // can't log the future
     const next = !goal.days[dayIdx];
-    setGoals((prev) =>
-      prev.map((g) =>
-        g.id === goal.id ? { ...g, days: g.days.map((d, i) => (i === dayIdx ? next : d)) } : g
-      )
-    );
-    onToggleDay?.(goal.id, dayIdx, next);
+    const apply = (value: boolean) =>
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goal.id ? { ...g, days: g.days.map((d, i) => (i === dayIdx ? value : d)) } : g
+        )
+      );
+    setSaveError(false);
+    apply(next);
+    try {
+      const res = await fetch(`${endpoint}/${goal.id}/log`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: week.isos[dayIdx], worked: next }),
+      });
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+    } catch {
+      apply(!next);
+      setSaveError(true);
+    }
   };
 
   const totalDone = goals.reduce((s, g) => s + g.days.filter(Boolean).length, 0);
@@ -244,7 +292,25 @@ export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay 
         </div>
       )}
 
-      {goals.length === 0 ? (
+      {saveError && (
+        <p className="asc-alt-error" role="alert">
+          Couldn&apos;t save that change, so it was undone. Try again.
+        </p>
+      )}
+
+      {status === "loading" ? (
+        <div className="asc-card asc-alt-empty" role="status">
+          <p>Loading your goals…</p>
+        </div>
+      ) : status === "error" ? (
+        <div className="asc-card asc-alt-empty" role="alert">
+          <h3>Couldn&apos;t load your goals</h3>
+          <p>Check your connection, then try again.</p>
+          <button type="button" className="asc-alt-retry" onClick={() => setReloadKey((k) => k + 1)}>
+            Try again
+          </button>
+        </div>
+      ) : goals.length === 0 ? (
         <div className="asc-card asc-alt-empty">
           <h3>No goals yet</h3>
           <p>Add up to five goals and log the days you work on them.</p>
@@ -272,7 +338,7 @@ export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay 
                 }
                 onClick={() => !locked && toggle(goal)}
               >
-                <GoalRing goal={goal} mode={mode} dayIdx={dayIdx} todayIdx={todayIdx} ready={ready} />
+                <GoalRing goal={goal} mode={mode} dayIdx={dayIdx} todayIdx={todayIdx} />
                 <h3>{goal.title}</h3>
                 <span className={`asc-alt-status${worked ? " done" : ""}${daily ? " show" : ""}`}>
                   {worked ? "Worked on it" : "Not logged"}
