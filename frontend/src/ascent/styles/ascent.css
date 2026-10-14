@@ -228,19 +228,91 @@
 .ascent-app .asc-pill.open{background:var(--purple-tint); color:var(--purple-text);}
 .ascent-app .asc-pill.late{background:var(--pink-tint); color:var(--pink-text);}
 
-/* ---------- Altitude ---------- */
-.ascent-app .asc-altitude-feature{margin-bottom:14px;}
-.ascent-app .asc-altitude-feature .asc-summit-card{padding:28px;}
-.ascent-app .asc-altitude-feature .asc-summit-info h3{font-size:20px;}
-.ascent-app .asc-altitude-mosaic{display:grid; grid-template-columns:1.4fr 1fr; grid-template-areas:"g2 g3" "g2 g4"; gap:14px;}
-.ascent-app .asc-g2{grid-area:g2;} .ascent-app .asc-g3{grid-area:g3;} .ascent-app .asc-g4{grid-area:g4;}
-.ascent-app .asc-summit-card{display:flex; gap:20px; align-items:center; height:100%;}
-.ascent-app .asc-summit-info{flex:1;}
-.ascent-app .asc-summit-info h3{font-family:'Space Grotesk', sans-serif; font-size:16.5px; margin:0 0 5px; font-weight:600;}
-.ascent-app .asc-summit-info p{margin:0 0 10px; font-size:13px; color:var(--text-dim); line-height:1.5;}
-.ascent-app .asc-spark{display:flex; align-items:flex-end; gap:3px; height:24px; margin-top:8px;}
-.ascent-app .asc-spark div{width:5px; background:var(--purple-tint);}
-.ascent-app .asc-spark div.hi{background:linear-gradient(180deg, var(--blue), var(--purple));}
+/* ---------- Altitude ----------
+   Replaces the old Altitude section in ascent.css. Delete these now-unused rules:
+   .asc-altitude-feature, .asc-altitude-mosaic, .asc-g2/.asc-g3/.asc-g4,
+   .asc-summit-card, .asc-summit-info, .asc-spark, and the .asc-altitude-mosaic
+   line inside the @media (max-width:980px) block. */
+
+/* Weekly / Daily toggle: values copied exactly from the Flight Log .fl-toggle rules,
+   so the two toggles match even when the Flight Log stylesheet isn't loaded on this page. */
+.ascent-app .asc-alt-head{align-items:center;}
+.ascent-app .asc-alt-toggle{display:inline-flex; gap:6px;}
+.ascent-app .asc-alt-toggle button{
+  padding:6px 14px; border:2px solid transparent; border-radius:8px;
+  color:#1f2937; font:inherit; font-size:13px; cursor:pointer;
+  transition:background .12s, border-color .12s;
+}
+.ascent-app .asc-alt-toggle .weekly{background:#dbeafe;}
+.ascent-app .asc-alt-toggle .weekly[aria-selected="true"]{background:#93c5fd; border-color:#3b82f6; font-weight:600;}
+.ascent-app .asc-alt-toggle .daily{background:#fce7f3;}
+.ascent-app .asc-alt-toggle .daily[aria-selected="true"]{background:#f9a8d4; border-color:#ec4899; font-weight:600;}
+.ascent-app .asc-alt-toggle button:hover:not([aria-selected="true"]){filter:brightness(.95);}
+.ascent-app .asc-alt-toggle button:focus-visible{outline:2px solid var(--purple); outline-offset:2px;}
+
+/* Day picker (daily view) */
+.ascent-app .asc-alt-days{display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:18px;}
+.ascent-app .asc-alt-day{
+  display:flex; flex-direction:column; align-items:center; gap:2px; min-height:56px; padding:8px 0;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);
+  font:inherit; color:var(--text); cursor:pointer; transition:border-color .15s ease, background .15s ease;
+}
+.ascent-app .asc-alt-day span{font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--text-dim);}
+.ascent-app .asc-alt-day strong{font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700;}
+.ascent-app .asc-alt-day:hover:not(:disabled){border-color:var(--border-strong);}
+.ascent-app .asc-alt-day.today strong{text-decoration:underline; text-decoration-color:var(--pink); text-underline-offset:4px;}
+.ascent-app .asc-alt-day.on{background:linear-gradient(135deg, var(--pink), var(--purple), var(--blue)); border-color:transparent; color:#fff;}
+.ascent-app .asc-alt-day.on span{color:rgba(255,255,255,.88);}
+.ascent-app .asc-alt-day:disabled{opacity:.4; cursor:not-allowed;}
+
+/* Goal grid */
+.ascent-app .asc-alt-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
+.ascent-app .asc-alt-card{display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 22px 22px;}
+.ascent-app .asc-alt-card h3{margin:0; font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:600; text-align:center;}
+.ascent-app .asc-alt-card-btn{width:100%; font:inherit; color:inherit; text-align:center; cursor:pointer;}
+.ascent-app .asc-alt-card-btn:disabled{cursor:default;}
+
+/* Ring */
+.ascent-app .asc-alt-ring{position:relative; width:168px; height:168px;}
+.ascent-app .asc-alt-ring svg{width:100%; height:100%; display:block;}
+.ascent-app .asc-alt-ring-center{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-family:'Space Grotesk', sans-serif; font-size:32px; font-weight:700; line-height:1;
+}
+.ascent-app .asc-alt-ring-center small{margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:10px; font-weight:400; color:var(--text-dim);}
+.ascent-app .asc-alt-letter{font-family:'JetBrains Mono', monospace; font-size:11px; fill:var(--text-dimmer);}
+.ascent-app .asc-alt-letter.today{fill:var(--text); font-weight:700;}
+
+/* Daily status pill (reuses the Flight Log pill look) */
+.ascent-app .asc-alt-status{font-family:'JetBrains Mono', monospace; font-size:10px; padding:3px 10px; border-radius:100px; background:var(--wash); color:var(--text-dim);}
+.ascent-app .asc-alt-status.done{background:var(--blue-tint); color:var(--blue-text);}
+
+/* Summary tile: the sixth cell */
+.ascent-app .asc-alt-summary{
+  display:flex; flex-direction:column; justify-content:center; gap:4px; padding:22px;
+  border-radius:var(--radius-lg); color:#fff;
+  background:linear-gradient(135deg, var(--pink), var(--purple), var(--blue));
+}
+.ascent-app .asc-alt-summary span{font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; opacity:.92;}
+.ascent-app .asc-alt-summary strong{font-family:'Space Grotesk', sans-serif; font-size:56px; font-weight:700; line-height:1.05; letter-spacing:-0.02em;}
+.ascent-app .asc-alt-summary em{font-style:normal; font-size:20px; font-weight:500; opacity:.9;}
+.ascent-app .asc-alt-summary p{margin:0; font-size:13px; opacity:.92;}
+
+.ascent-app .asc-alt-empty{padding:40px; text-align:center;}
+.ascent-app .asc-alt-empty h3{margin:0 0 6px; font-family:'Space Grotesk', sans-serif; font-size:17px;}
+.ascent-app .asc-alt-empty p{margin:0; font-size:13.5px; color:var(--text-dim);}
+
+/* Focus rings */
+.ascent-app .asc-alt-day:focus-visible,
+.ascent-app .asc-alt-card-btn:focus-visible{outline:2px solid var(--purple); outline-offset:2px;}
+
+/* Responsive: merge into your existing media queries, or keep these here */
+@media (max-width:980px){ .ascent-app .asc-alt-grid{grid-template-columns:repeat(2,1fr);} }
+@media (max-width:720px){
+  .ascent-app .asc-alt-grid{grid-template-columns:1fr;}
+  .ascent-app .asc-alt-day strong{font-size:15px;}
+  .ascent-app .asc-alt-day span{font-size:9.5px;}
+}
 
 /* ---------- Turbulence ---------- */
 .ascent-app .asc-turbulence-layout{display:grid; grid-template-columns:1fr; gap:14px;}
