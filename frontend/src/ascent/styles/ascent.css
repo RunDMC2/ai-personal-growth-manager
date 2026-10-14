@@ -270,7 +270,7 @@
 .ascent-app .asc-alt-card{display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 22px 22px;}
 .ascent-app .asc-alt-card h3{margin:0; font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:600; text-align:center;}
 .ascent-app .asc-alt-card-btn{width:100%; font:inherit; color:inherit; text-align:center; cursor:pointer;}
-.ascent-app .asc-alt-card-btn:disabled{cursor:default;}
+.ascent-app .asc-alt-card-btn[aria-disabled="true"]{cursor:default;}
 
 /* Ring */
 .ascent-app .asc-alt-ring{position:relative; width:168px; height:168px;}
@@ -312,6 +312,39 @@
   .ascent-app .asc-alt-grid{grid-template-columns:1fr;}
   .ascent-app .asc-alt-day strong{font-size:15px;}
   .ascent-app .asc-alt-day span{font-size:9.5px;}
+}
+
+/* ---------- Motion ---------- */
+
+/* Cards and summary tile rise in one after another (reuses your asc-rise keyframes) */
+.ascent-app .asc-alt-card,
+.ascent-app .asc-alt-summary{animation:asc-rise .5s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i) * 70ms);}
+
+/* Day picker slides in when you switch to Daily view */
+.ascent-app .asc-alt-days{animation:asc-rise .3s cubic-bezier(.2,.8,.2,1) both;}
+
+/* Ring: the whole ring swings clockwise into place, and each segment grows clockwise, staggered */
+.ascent-app .asc-alt-spin{transition:transform 1s cubic-bezier(.2,.8,.2,1);}
+.ascent-app .asc-alt-seg{
+  transition:stroke-dasharray .5s cubic-bezier(.4,0,.2,1), stroke .3s ease;
+  transition-delay:calc(var(--i) * 70ms);
+}
+
+/* Day letters fade out in daily view and back in (staggered) in weekly view */
+.ascent-app .asc-alt-letter{transition:opacity .35s ease;}
+
+/* Daily status pill: fades in and out instead of popping, and keeps its space so cards don't jump */
+.ascent-app .asc-alt-status{opacity:0; transition:opacity .3s ease, background .3s ease, color .3s ease;}
+.ascent-app .asc-alt-status.show{opacity:1;}
+
+@media (prefers-reduced-motion: reduce){
+  .ascent-app .asc-alt-card,
+  .ascent-app .asc-alt-summary,
+  .ascent-app .asc-alt-days{animation:none;}
+  .ascent-app .asc-alt-spin,
+  .ascent-app .asc-alt-seg,
+  .ascent-app .asc-alt-letter,
+  .ascent-app .asc-alt-status{transition:none;}
 }
 
 /* ---------- Turbulence ---------- */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 /* ---------- Types & sample data (swap for ../../ascent/data + types) ---------- */
 
@@ -45,14 +45,42 @@ function getWeek(): Week {
   return { todayIdx, dates };
 }
 
+/* ---------- Animation helpers ---------- */
+
+/** Counts a number up (or down) to `target`. Skips the animation for reduced-motion users. */
+function useCountUp(target: number, ms = 700) {
+  const [value, setValue] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      from.current = target;
+      setValue(target);
+      return;
+    }
+    const start = performance.now();
+    const begin = from.current;
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / ms);
+      const eased = 1 - Math.pow(1 - p, 3);
+      from.current = begin + (target - begin) * eased;
+      setValue(from.current);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return Math.round(value);
+}
+
 /* ---------- Ring ---------- */
 
 const CX = 80;
 const RING_R = 50;
 const LABEL_R = 69;
-// pathLength={70} => each of the 7 segments is 10 units: 8.4 drawn + 1.6 gap
-const SEG_ON = "8.4 1.6";
-const SEG_OFF = "0 10";
+// pathLength={70}: each of the 7 segments owns 10 units. Weekly draws 8.4 (1.6 gap); daily draws all 10.
+const SEG_WEEKLY = 8.4;
+const SEG_FULL = 10;
 
 function labelPos(i: number) {
   const angle = ((-90 + (i + 0.5) * (360 / 7)) * Math.PI) / 180;
@@ -64,56 +92,69 @@ interface GoalRingProps {
   mode: ViewMode;
   dayIdx: number;
   todayIdx: number;
+  ready: boolean;
 }
 
-function GoalRing({ goal, mode, dayIdx, todayIdx }: GoalRingProps) {
+function GoalRing({ goal, mode, dayIdx, todayIdx, ready }: GoalRingProps) {
   const count = goal.days.filter(Boolean).length;
-  const common = {
-    cx: CX,
-    cy: CX,
-    r: RING_R,
-    fill: "none",
-    strokeWidth: 12,
-    transform: `rotate(-90 ${CX} ${CX})`,
-  };
+  const shown = useCountUp(count);
+  const weekly = mode === "weekly";
+
+  // Seven separate arcs so each can grow clockwise on its own, staggered by --i.
+  const arc = (i: number, len: number, stroke: string, extra?: string) => (
+    <circle
+      key={`${extra}-${i}`}
+      className="asc-alt-seg"
+      cx={CX}
+      cy={CX}
+      r={RING_R}
+      fill="none"
+      strokeWidth={12}
+      pathLength={70}
+      stroke={stroke}
+      style={
+        {
+          "--i": i,
+          strokeDasharray: `${len} ${70 - len}`,
+          strokeDashoffset: -(i * 10),
+        } as CSSProperties
+      }
+    />
+  );
 
   return (
     <div className="asc-alt-ring">
       <svg viewBox="0 0 160 160" aria-hidden="true">
-        {mode === "weekly" ? (
-          <>
-            <circle {...common} stroke="var(--border, #E5E1F1)" pathLength={70} strokeDasharray={SEG_ON} />
-            <circle
-              {...common}
-              stroke={goal.color}
-              pathLength={70}
-              strokeDasharray={goal.days.map((d) => (d ? SEG_ON : SEG_OFF)).join(" ")}
-            />
-            {DAY_LETTERS.map((letter, i) => {
-              const { x, y } = labelPos(i);
-              return (
-                <text
-                  key={i}
-                  x={x}
-                  y={y}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  className={`asc-alt-letter${i === todayIdx ? " today" : ""}`}
-                >
-                  {letter}
-                </text>
-              );
-            })}
-          </>
-        ) : (
-          <circle
-            {...common}
-            stroke={goal.days[dayIdx] ? goal.color : "var(--border, #E5E1F1)"}
-          />
-        )}
+        <g
+          className="asc-alt-spin"
+          style={{ transform: `rotate(${ready ? -90 : -150}deg)`, transformOrigin: `${CX}px ${CX}px` }}
+        >
+          {DAY_LETTERS.map((_, i) => arc(i, weekly ? SEG_WEEKLY : SEG_FULL, "var(--border, #E5E1F1)", "track"))}
+          {DAY_LETTERS.map((_, i) => {
+            const on = weekly ? goal.days[i] : goal.days[dayIdx];
+            const len = !ready || !on ? 0 : weekly ? SEG_WEEKLY : SEG_FULL;
+            return arc(i, len, goal.color, "fill");
+          })}
+        </g>
+        {DAY_LETTERS.map((letter, i) => {
+          const { x, y } = labelPos(i);
+          return (
+            <text
+              key={i}
+              x={x}
+              y={y}
+              textAnchor="middle"
+              dominantBaseline="central"
+              className={`asc-alt-letter${i === todayIdx ? " today" : ""}`}
+              style={{ opacity: weekly && ready ? 1 : 0, transitionDelay: weekly ? `${300 + i * 50}ms` : "0ms" }}
+            >
+              {letter}
+            </text>
+          );
+        })}
       </svg>
       <div className="asc-alt-ring-center" style={{ color: goal.color }}>
-        {count}
+        {shown}
         <small>of 7 days</small>
       </div>
     </div>
@@ -132,12 +173,19 @@ export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay 
   const [mode, setMode] = useState<ViewMode>("weekly");
   const [week, setWeek] = useState<Week | null>(null);
   const [dayIdx, setDayIdx] = useState(0);
+  const [ready, setReady] = useState(false);
 
   // Computed after mount so server and client dates can't cause a hydration mismatch.
   useEffect(() => {
     const w = getWeek();
     setWeek(w);
     setDayIdx(w.todayIdx);
+  }, []);
+
+  // Flip after first paint so rings sweep in on load.
+  useEffect(() => {
+    const id = setTimeout(() => setReady(true), 60);
+    return () => clearTimeout(id);
   }, []);
 
   const todayIdx = week?.todayIdx ?? -1;
@@ -155,6 +203,7 @@ export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay 
 
   const totalDone = goals.reduce((s, g) => s + g.days.filter(Boolean).length, 0);
   const workedOnDay = goals.filter((g) => g.days[dayIdx]).length;
+  const summaryValue = useCountUp(mode === "weekly" ? totalDone : workedOnDay);
 
   return (
     <div className="asc-view">
@@ -202,41 +251,40 @@ export default function AltitudeView({ initialGoals = SAMPLE_GOALS, onToggleDay 
         </div>
       ) : (
         <div className="asc-alt-grid">
-          {goals.map((goal) => {
+          {goals.map((goal, idx) => {
             const worked = goal.days[dayIdx];
-            const body = (
-              <>
-                <GoalRing goal={goal} mode={mode} dayIdx={dayIdx} todayIdx={todayIdx} />
-                <h3>{goal.title}</h3>
-                {mode === "daily" && (
-                  <span className={`asc-alt-status${worked ? " done" : ""}`}>
-                    {worked ? "Worked on it" : "Not logged"}
-                  </span>
-                )}
-              </>
-            );
-            return mode === "daily" ? (
+            const daily = mode === "daily";
+            const locked = !daily || dayIdx > todayIdx;
+            return (
+              // One persistent element in both modes, so rings animate between views instead of remounting.
               <button
                 key={goal.id}
+                type="button"
                 className="asc-card asc-alt-card asc-alt-card-btn"
-                aria-pressed={worked}
-                aria-label={`${goal.title}: ${worked ? "worked on" : "not logged"} ${DAY_NAMES[dayIdx]}`}
-                disabled={dayIdx > todayIdx}
-                onClick={() => toggle(goal)}
+                style={{ "--i": idx } as CSSProperties}
+                aria-pressed={daily ? worked : undefined}
+                aria-disabled={locked}
+                tabIndex={daily ? 0 : -1}
+                aria-label={
+                  daily
+                    ? `${goal.title}: ${worked ? "worked on" : "not logged"} ${DAY_NAMES[dayIdx]}`
+                    : `${goal.title}: ${goal.days.filter(Boolean).length} of 7 days`
+                }
+                onClick={() => !locked && toggle(goal)}
               >
-                {body}
+                <GoalRing goal={goal} mode={mode} dayIdx={dayIdx} todayIdx={todayIdx} ready={ready} />
+                <h3>{goal.title}</h3>
+                <span className={`asc-alt-status${worked ? " done" : ""}${daily ? " show" : ""}`}>
+                  {worked ? "Worked on it" : "Not logged"}
+                </span>
               </button>
-            ) : (
-              <div key={goal.id} className="asc-card asc-alt-card">
-                {body}
-              </div>
             );
           })}
 
-          <div className="asc-alt-summary">
+          <div className="asc-alt-summary" style={{ "--i": goals.length } as CSSProperties}>
             <span>{mode === "weekly" ? "Weekly altitude" : `${DAY_NAMES[dayIdx]} altitude`}</span>
             <strong>
-              {mode === "weekly" ? totalDone : workedOnDay}
+              {summaryValue}
               <em> / {mode === "weekly" ? goals.length * 7 : goals.length}</em>
             </strong>
             <p>{mode === "weekly" ? "Goal-days logged this week." : "Goals worked on this day."}</p>
