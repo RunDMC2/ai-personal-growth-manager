@@ -2,7 +2,6 @@ from datetime import date, datetime, timezone
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-import requests
 from os import getenv
 from dotenv import load_dotenv
 
@@ -58,7 +57,7 @@ async def pull_todo_list():
         # pad row in case trailing empty cells were dropped
         row = row + [""] * (8 - len(row))
         do_flag, done_flag, task, assigned_by, due_by, est_time_rem, days_rem, completed_on = row[:8]
-        if not due_by:
+        if not due_by:  # TODO: May need to fix later in the case of writing a task then deleting it 
             continue
         due_date = datetime.strptime(due_by, "%m/%d/%Y").date()
 
@@ -100,68 +99,13 @@ async def pull_todo_list():
                 updated_at = EXCLUDED.updated_at
         """, db_rows)
 
+    update_task_counts()  # update counts of done tasks for each day, and amount of tasks to do for current day; uploads to database
 
     return {
         "today_onward": today_onward,
         "overdue": overdue,
         "do_tasks": do_tasks,
     }
-
-
-# ----- General pulling ranges -----
-
-def pull_from_range(range_name: str):
-    """
-    Returns desired range of data from desired range in the form of:
-
-    e.g. for "Dashboard!A1:E25"
-    [
-        [A1, B1, C1, D1, E1],
-        [A2, B2, C2, D2, E2],
-        ...
-    ]
-    """
-    creds = get_credentials()
-    spreadsheet_id = getenv("SIP_SHEET_ID")
-
-    service = build("sheets", "v4", credentials=creds)
-
-    result = (
-        service.spreadsheets()
-        .values()
-        .get(spreadsheetId=spreadsheet_id, range=range_name)
-        .execute()
-    )
-    rows = result.get("values", [])
-    return rows
-
-def pull_stats():
-    # Placeholder implementation for pulling stats from Google Sheets
-    # In a real implementation, you would use the Google Sheets API to fetch data
-    return {"message": "Stats pulled successfully from Google Sheets."}
-
-
-def get_sheet_ids():
-    """
-    Return a dictionary of sheet names to their corresponding IDs.
-    (Mainly used on backend for logging purposes)
-    """
-    creds = get_credentials()
-    service = build("sheets", "v4", credentials=creds)
-
-    # Get the spreadsheet ID from the environment variable
-    spreadsheet_id = getenv("SIP_SHEET_ID")
-
-    # Fetch the spreadsheet metadata
-    spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-
-    # Extract sheet names and their corresponding IDs
-    sheet_ids = {
-        sheet["properties"]["title"]: sheet["properties"]["sheetId"]
-        for sheet in spreadsheet.get("sheets", [])
-    }
-
-    return sheet_ids
 
 
 # ----- Tasks for the frontend -----
@@ -222,4 +166,86 @@ def schedule_task(row: int, body: ScheduleBody):
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail=f"No task in row {row}")
     return {"row": row, "scheduled_for": body.scheduled_for}
+
+
+def update_task_counts():
+    """
+    Updates count of done tasks for each day, and amount of tasks to do for current day; uploads to database.
+    """
+
+    # Update done tasks counts for each day
+    with db_cursor(commit=True) as cur:
+        cur.execute("""
+            INSERT INTO done_tasks_counts (date, count)
+            SELECT 
+                DATE(completed_on) AS date,
+                COUNT(*) AS count
+            FROM to_do_tasks
+            WHERE done = true
+            GROUP BY DATE(completed_on)
+            ON CONFLICT (date) DO UPDATE
+            SET count = EXCLUDED.count;
+        """)
+
+    with db_cursor(commit=True) as cur:
+        # Update counts for "Do" tasks, Overdue tasks, and all to do tasks
+        cur.execute("""
+            WITH task_counts AS (
+                SELECT 'All undone tasks' AS task_type, COUNT(*) AS count
+                FROM to_do_tasks
+                WHERE done = false
+                
+                UNION ALL
+                
+                SELECT 'Tasks marked Do', COUNT(*)
+                FROM to_do_tasks
+                WHERE "do" = true AND done = false
+                
+                UNION ALL
+                
+                SELECT 'Tasks marked Overdue', COUNT(*)
+                FROM to_do_tasks
+                WHERE days_rem LIKE '%Overdue%'
+
+                UNION ALL
+
+                SELECT 'All completed tasks', COUNT(*)
+                FROM to_do_tasks
+                WHERE done = true
+            )
+            UPDATE current_tasks_counts
+            SET count = task_counts.count
+            FROM task_counts
+            WHERE current_tasks_counts.task_type = task_counts.task_type;
+        """)
+
+    return {"message": "Task counts updated successfully."}
+
+
+def get_task_counts():
+    """
+    Returns the current counts of done tasks for each day, and amount of tasks to do for current day.
+    """
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT *
+            FROM current_tasks_counts
+        """)
+        rows = cur.fetchall()
+
+    with db_cursor() as cur:
+        cur.execute("""
+            SELECT count
+            FROM done_tasks_counts
+            WHERE "date" = %s;
+        """, (date.today(),))
+        rows.append({"task_type": "Tasks done today"} | cur.fetchone())  # Append today's done tasks count to the list
+
+    return [
+        {
+            "task_type": r["task_type"],
+            "count": r["count"],
+        }
+        for r in rows
+    ]
  

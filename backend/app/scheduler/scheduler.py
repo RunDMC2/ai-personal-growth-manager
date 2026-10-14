@@ -2,7 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
-from app.controllers.sheetController import pull_todo_list
+from app.controllers.toDoController import pull_todo_list
 from app.scheduler.scheduler_log import log_last_ran_time
 
 scheduler = AsyncIOScheduler()
@@ -49,7 +49,8 @@ def start_job(job_id: str):
     """
     job = scheduler.get_job(job_id)
     if job:
-        scheduler.modify_job(job_id, next_run_time=datetime.now(tz=timezone.utc)) # runs immediately
+        # scheduler.modify_job(job_id, next_run_time=datetime.now(tz=timezone.utc)) # runs immediately
+        scheduler.resume_job(job_id)  # resumes the job if it was paused
         log_last_ran_time(job_id)
     else:
         raise ValueError(f"No job found with ID: {job_id}")
