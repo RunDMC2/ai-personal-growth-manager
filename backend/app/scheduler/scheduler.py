@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
 from app.controllers.toDoController import pull_todo_list
+from app.controllers.goalsController import add_goals_to_db
 from app.scheduler.scheduler_log import log_last_ran_time
 
 scheduler = AsyncIOScheduler()
@@ -28,6 +29,12 @@ JOB_REGISTRY = {
         "func": pull_todo_list,
         "id": "update_todo_list",
         "desc": "Wrapper job to schedule To Do list pulls every 15 seconds",
+        "seconds": 15,
+    },
+    "altitude": {
+        "func": add_goals_to_db,
+        "id": "update_goals_list",
+        "desc": "Wrapper job to schedule Altitude goals pulls every 15 seconds",
         "seconds": 15,
     }
 }

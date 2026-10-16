@@ -1,6 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+
+export function useScheduler(job_id: string) {
+  useEffect(() => {
+    const base_url = process.env.NEXT_PUBLIC_API_URL;
+    fetch(`${base_url}/scheduler/start/${job_id}`, {
+      method: "POST",
+    }).catch((err) => console.error("Failed to start scheduler job:", err));
+
+    return () => {
+      navigator.sendBeacon(`${base_url}/scheduler/stop/${job_id}`);
+    };
+  }, [job_id]);
+}
 
 /* ---------- Types ---------- */
 
@@ -26,6 +39,9 @@ function normalizeGoals(data: unknown): WeeklyGoal[] {
     days: Array.from({ length: 7 }, (_, d) => Boolean(g.days?.[d])),
   }));
 }
+
+/** Cheap deep-compare so a poll that returns identical data doesn't trigger a re-render. */
+const sameGoals = (a: WeeklyGoal[], b: WeeklyGoal[]) => JSON.stringify(a) === JSON.stringify(b);
 
 const DAY_LETTERS = ["M", "T", "W", "R", "F", "S", "S"];
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -180,7 +196,7 @@ function GoalRing({ goal, mode, dayIdx, todayIdx }: GoalRingProps) {
 /* ---------- View ---------- */
 
 interface AltitudeViewProps {
-  /** GET returns goals for the week (?weekStart=YYYY-MM-DD). PUT `${endpoint}/:id/log` saves a day. */
+  /** GET `${endpoint}/pull/:weekStart` returns goals for the week. PUT `${endpoint}/:id/log` saves a day. */
   endpoint?: string;
 }
 
@@ -189,13 +205,20 @@ const base_url = process.env.NEXT_PUBLIC_API_URL;
 type LoadStatus = "loading" | "ready" | "error";
 
 export default function AltitudeView({ endpoint = `${base_url}/goals` }: AltitudeViewProps) {
+  useScheduler("update_goals_list");
+
   const [goals, setGoals] = useState<WeeklyGoal[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [saveError, setSaveError] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
   const [mode, setMode] = useState<ViewMode>("weekly");
   const [week, setWeek] = useState<Week | null>(null);
   const [dayIdx, setDayIdx] = useState(0);
+
+  // Polling bookkeeping (refs, so changing them never re-renders).
+  const abortRef = useRef<AbortController | null>(null);
+  const hasData = useRef(false); // true after the first successful load
+  const savesInFlight = useRef(0); // pending PUTs
+  const lastSaveDone = useRef(0); // timestamp of the last finished save
 
   // Computed after mount so server and client dates can't cause a hydration mismatch.
   useEffect(() => {
@@ -204,23 +227,45 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
     setDayIdx(w.todayIdx);
   }, []);
 
-  // Fetch this week's goals once the week is known (and again if endpoint changes or Try again is pressed).
-  useEffect(() => {
+  // Fetch this week's goals. Used by the first load, the 15s poll, and the Try again button.
+  const fetchWeekGoals = useCallback(async () => {
     if (!week) return;
+    abortRef.current?.abort();
     const ctrl = new AbortController();
-    setStatus("loading");
-    (async () => {
-      try {
-        const res = await fetch(`${endpoint}?weekStart=${week.isos[0]}`, { signal: ctrl.signal });
-        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-        setGoals(normalizeGoals(await res.json()));
-        setStatus("ready");
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") setStatus("error");
-      }
-    })();
-    return () => ctrl.abort(); // cancels the request on unmount (and on React Strict Mode's dev re-run)
-  }, [week, endpoint, reloadKey]);
+    abortRef.current = ctrl;
+    const startedAt = Date.now();
+
+    // Loading card only on the very first load (or a manual retry). Background polls stay silent,
+    // so the grid never unmounts and the ring animations don't replay.
+    if (!hasData.current) setStatus("loading");
+
+    try {
+      const res = await fetch(`${endpoint}/pull/${week.isos[0]}`, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      const next = normalizeGoals(await res.json());
+
+      // A save is pending, or finished after this request started: this response may be stale. Skip it.
+      if (savesInFlight.current > 0 || lastSaveDone.current > startedAt) return;
+
+      hasData.current = true;
+      setGoals((prev) => (sameGoals(prev, next) ? prev : next)); // same data = same reference = no re-render
+      setStatus("ready");
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      // If a background refresh fails, keep showing the last good data instead of an error card.
+      if (!hasData.current) setStatus("error");
+    }
+  }, [week, endpoint]);
+
+  //* TODO: This works, and is present in FlightLogView.tsx, but means the scheduler isn't running the subjobs every 15 seconds like supposed to */
+  useEffect(() => {
+    fetchWeekGoals();
+    const t = setInterval(fetchWeekGoals, 15_000); // matches the backend sync interval
+    return () => {
+      clearInterval(t);
+      abortRef.current?.abort(); // cancels the in-flight request on unmount
+    };
+  }, [fetchWeekGoals]);
 
   const todayIdx = week?.todayIdx ?? -1;
 
@@ -236,6 +281,7 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
       );
     setSaveError(false);
     apply(next);
+    savesInFlight.current += 1;
     try {
       const res = await fetch(`${endpoint}/${goal.id}/log`, {
         method: "PUT",
@@ -246,6 +292,9 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
     } catch {
       apply(!next);
       setSaveError(true);
+    } finally {
+      savesInFlight.current -= 1;
+      lastSaveDone.current = Date.now();
     }
   };
 
@@ -306,7 +355,7 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
         <div className="asc-card asc-alt-empty" role="alert">
           <h3>Couldn&apos;t load your goals</h3>
           <p>Check your connection, then try again.</p>
-          <button type="button" className="asc-alt-retry" onClick={() => setReloadKey((k) => k + 1)}>
+          <button type="button" className="asc-alt-retry" onClick={fetchWeekGoals}>
             Try again
           </button>
         </div>
