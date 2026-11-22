@@ -67,7 +67,7 @@ def add_goals_to_db(weekStart: str = "None"):
 
     # format completion data into tuples for db insertion
     completion_tuples = []
-    for weekday in range(6):
+    for weekday in range(7):
         day = datetime.strptime(weekStart, "%Y-%m-%d") + timedelta(days=weekday)
         i_tuple = (day.strftime("%Y-%m-%d"),)
 

@@ -355,6 +355,49 @@
 }
 .ascent-app .asc-alt-retry:focus-visible{outline:2px solid var(--purple); outline-offset:2px;}
 
+/* Orbit layout (Goals + Turbulence). */
+.asc-orbit-goal .asc-alt-ring { width: 100% !important; height: auto !important; aspect-ratio: 1 / 1; }
+.asc-orbit-goal .asc-alt-ring svg { width: 100%; height: 100%; }
+.asc-orbit-goal .asc-alt-ring-center { font-size: clamp(13px, 4.6cqw, 26px); }
+.asc-orbit-goal .asc-alt-ring-center small { font-size: clamp(7px, 1.9cqw, 11px); }
+/* Layout: weekly = orbit alone, centered and large. Daily = day rail slides in, orbit shrinks and shifts left. */
+.asc-orbit-layout { display: flex; justify-content: flex-start; align-items: center; }
+.asc-orbit-stage { flex: 0 1 auto; width: 100%; max-width: 680px; margin: -20px auto 44px; container-type: inline-size; transition: max-width .6s cubic-bezier(.2,.8,.2,1); }
+.asc-orbit-layout.daily .asc-orbit-stage { max-width: 580px; }
+/* margin-bottom (64) = stage bottom margin (44) minus its top margin (-20), so the rail centers on the rings, not the labels */
+.asc-rail-wrap { flex: none; width: 0; margin: 0 0 64px; overflow: hidden; opacity: 0; visibility: hidden;
+  transition: width .6s cubic-bezier(.2,.8,.2,1), margin-left .6s cubic-bezier(.2,.8,.2,1), opacity .3s ease, visibility 0s .6s; }
+.asc-orbit-layout.daily .asc-rail-wrap { width: var(--rail-w, 250px); margin-left: 36px; opacity: 1; visibility: visible;
+  transition: width .6s cubic-bezier(.2,.8,.2,1), margin-left .6s cubic-bezier(.2,.8,.2,1), opacity .4s ease .2s, visibility 0s; }
+.asc-rail { width: var(--rail-w, 250px); display: flex; flex-direction: column; gap: 6px; }
+.asc-rail-day { display: grid; grid-template-columns: 46px 1fr auto; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border, #E5E1F1); background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.asc-rail-day.on { background: var(--hub-bg, #F4F2F9); border-color: var(--hub-text, #5E5480); }
+.asc-rail-day.today .name { font-weight: 700; }
+.asc-rail-day:disabled { opacity: 0.4; cursor: default; }
+.asc-rail-day:focus-visible { outline: 2px solid #7C4DFF; outline-offset: -2px; }
+.asc-rail-day .name { display: flex; flex-direction: column; font-size: 13px; line-height: 1.2; }
+.asc-rail-day .name small { opacity: 0.6; font-size: 11px; }
+.asc-rail-dots { display: flex; gap: 4px; }
+.asc-rail-dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--border, #D5D0E6); box-sizing: border-box; }
+.asc-rail-pts { font-size: 13px; font-variant-numeric: tabular-nums; opacity: 0.8; }
+@media (max-width: 760px) {
+  /* Phones: rail becomes a chip strip above the orbit and collapses vertically instead of sideways. */
+  .asc-orbit-layout { flex-direction: column; align-items: stretch; }
+  .asc-orbit-stage, .asc-orbit-layout.daily .asc-orbit-stage { align-self: center; max-width: 560px; margin-top: 4px; }
+  .asc-orbit-layout .asc-rail-wrap, .asc-orbit-layout.daily .asc-rail-wrap { margin-bottom: 0; }
+  .asc-orbit-layout .asc-rail-wrap, .asc-orbit-layout.daily .asc-rail-wrap { order: -1; width: 100%; margin-left: 0; max-height: 0; padding-top: 0;
+    transition: max-height .5s cubic-bezier(.2,.8,.2,1), opacity .3s ease, visibility 0s .5s; }
+  .asc-orbit-layout.daily .asc-rail-wrap { max-height: 90px; transition: max-height .5s cubic-bezier(.2,.8,.2,1), opacity .4s ease .1s, visibility 0s; }
+  .asc-rail { width: 100%; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .asc-rail-day { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 2px; padding: 6px 2px; }
+  .asc-rail-day .name { align-items: center; }
+  .asc-rail-dots { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .asc-orbit-stage, .asc-rail-wrap { transition: none !important; }
+}
+.asc-orbit-goal:focus-visible { outline: 2px solid #7869AA; outline-offset: 6px; border-radius: 12px; }
+
 /* ---------- Turbulence ---------- */
 .ascent-app .asc-turbulence-layout{display:grid; grid-template-columns:1fr; gap:14px;}
 .ascent-app .asc-turbulence-row{display:grid; grid-template-columns:1.6fr 1fr; gap:14px;}
