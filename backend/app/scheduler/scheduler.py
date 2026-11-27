@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.controllers.toDoController import pull_todo_list
 from app.controllers.goalsController import add_goals_to_db
+from app.controllers.weaknessesController import add_weaknesses_to_db
 from app.scheduler.scheduler_log import log_last_ran_time
 
 scheduler = AsyncIOScheduler()
@@ -34,7 +35,13 @@ JOB_REGISTRY = {
     "altitude": {
         "func": add_goals_to_db,
         "id": "update_goals_list",
-        "desc": "Wrapper job to schedule Altitude goals pulls every 15 seconds",
+        "desc": "Wrapper job to schedule Goals goals pulls (from sheets to db) every 15 seconds",
+        "seconds": 15,
+    },
+    "turbulence": {
+        "func": add_weaknesses_to_db,
+        "id": "update_weaknesses_list",
+        "desc": "Wrapper job to schedule DISC weaknesses pulls (from sheets to db) every 15 seconds",
         "seconds": 15,
     }
 }
@@ -80,6 +87,7 @@ def stop_job(job_id: str):
     
 
 # ----- Routes -----
+# --- TODO: ALWAYS RUN THIS ROUTE ON :8000/docs WHEN ADDING A NEW JOB TO THE REGISTRY, OTHERWISE IT WON'T BE SCHEDULED ---
 @router.post("/register-jobs")
 async def register_jobs_route():
     try:

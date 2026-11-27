@@ -22,7 +22,7 @@ export function useToggleWidth() {
 interface OrbitBoardProps {
   title: string;
   subtitle?: string;
-  items: WeeklyGoal[]; // max 5
+  items: WeeklyGoal[]; // max 6
   week: Week | null;
   mode: ViewMode;
   setMode: (m: ViewMode) => void;
@@ -46,6 +46,8 @@ export default function OrbitBoard(p: OrbitBoardProps) {
   const hubShown = useCountUp(p.hubValue);
   const todayIdx = p.week?.todayIdx ?? -1;
   const daily = p.mode === "daily";
+  // Six items sit closer together, so rings and their labels get a little smaller.
+  const size = p.items.length > 5 ? 18 : 20;
 
   return (
     <div className="asc-view">
@@ -84,19 +86,19 @@ export default function OrbitBoard(p: OrbitBoardProps) {
               {p.items.map((item, idx) => {
                 const active = item.days[p.dayIdx];
                 const cap = p.caption(item, active);
-                const blocked = daily && p.dayIdx > todayIdx; // can't log the future
+                const blocked = !daily || p.dayIdx > todayIdx; // weekly is view-only; can't log the future
                 return (
                   <div
                     key={item.id}
                     style={{
-                      position: "absolute", width: "20%", transform: "translate(-50%, -50%)",
+                      position: "absolute", width: `${size}%`, transform: "translate(-50%, -50%)",
                       transition: "left 0.5s ease, top 0.5s ease", ...orbitPos(idx, p.items.length),
                     }}
                   >
                     <button
                       type="button"
                       className="asc-orbit-goal"
-                      aria-haspopup="dialog"
+                      aria-haspopup={daily ? "dialog" : undefined}
                       aria-disabled={blocked}
                       aria-label={`${item.title}: ${item.days.filter(Boolean).length} of 7 days`}
                       onClick={() => !blocked && p.onSelect(item)}
@@ -108,7 +110,7 @@ export default function OrbitBoard(p: OrbitBoardProps) {
                       <GoalRing goal={item} mode={p.mode} dayIdx={p.dayIdx} todayIdx={todayIdx} />
                       <span
                         style={{
-                          position: "absolute", top: "100%", left: "-30%", width: "160%", marginTop: 8,
+                          position: "absolute", top: "100%", left: "-25%", width: "150%", marginTop: 8,
                           display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                           textAlign: "center", pointerEvents: "none",
                         }}

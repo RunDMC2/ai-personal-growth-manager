@@ -42,8 +42,7 @@ export default function AscentApp() {
               <p>{subtitle}</p>
             </div>
             <div className="asc-topbar-right">
-              <div className="asc-badge-readonly">◎ read-only wrapper</div>
-              <div style={{ marginTop: 6 }}>Week 34 · Aug 24–30, 2026</div>
+              <div className="asc-badge-readonly">Week 34 · Aug 24–30, 2026</div>
             </div>
           </div>
 

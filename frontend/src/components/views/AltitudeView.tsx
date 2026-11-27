@@ -478,7 +478,7 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
   return (
     <div className="asc-view">
       <div className="asc-section-head asc-alt-head">
-        <h2>Active goals</h2>
+        <h2></h2>
         <div className="asc-alt-toggle" ref={toggleRef} role="tablist" aria-label="Goal view">
           {(["weekly", "daily"] as ViewMode[]).map((m) => (
             <button

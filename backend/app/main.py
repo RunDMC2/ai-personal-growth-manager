@@ -6,6 +6,7 @@ import uvicorn
 from app.routes.toDoRouter import router as to_do_router
 from app.routes.sheetsRouter import router as sheets_router
 from app.routes.goalsRouter import router as goals_router
+from app.routes.weaknessesRouter import router as weaknesses_router
 from app.scheduler.scheduler import scheduler, register_jobs, router as scheduler_router
 
 @asynccontextmanager
@@ -32,7 +33,7 @@ app.include_router(to_do_router)
 app.include_router(sheets_router)
 app.include_router(scheduler_router)
 app.include_router(goals_router)
-
+app.include_router(weaknesses_router)
 
 @app.get("/", tags=["health"])
 async def health_check() -> dict[str, str]:

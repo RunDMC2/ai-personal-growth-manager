@@ -6,7 +6,7 @@ import { DAY_NAMES, NoteDialog, getWeek, useScheduler, type ViewMode, type Week,
 import OrbitBoard from "../OrbitBoard";
 
 /** A weakness shaped like a goal (so the shared ring/orbit works), plus its descriptive fields.
- *  days[i] = true means the weakness showed up that day. */
+ *  days[i] = true means you made progress on / overcame the weakness that day. */
 interface WeaknessItem extends WeeklyGoal {
   status: Weakness["status"];
   statusLabel: string;
@@ -14,19 +14,24 @@ interface WeaknessItem extends WeeklyGoal {
   pattern: string;
 }
 
+const POINTS_PER_WEAKNESS_DAY = 15;
+
+/** Own palette, deliberately different from the goal colors. Used when the API doesn't send a color. */
+const WEAKNESS_COLORS = ["#E4572E", "#14A3A0", "#8A9A1B", "#3E4C9E", "#A65E2E", "#5F6F8A"];
+
 const STATUS_COLOR: Record<Weakness["status"], string> = {
   "needs-attention": "var(--pink-text)",
   "in-progress": "var(--purple-text)",
   "on-track": "var(--blue-text)",
 };
 
-/** Adjust field names to match your endpoint. accentVar is e.g. "--pink". */
+/** Adjust field names to match your endpoint. An optional `color` (hex) from the API overrides the palette. */
 function normalize(data: unknown): WeaknessItem[] {
   if (!Array.isArray(data)) return [];
-  return data.slice(0, 5).map((w) => ({
+  return data.slice(0, 6).map((w, i) => ({
     id: String(w.id),
     title: String(w.title ?? "Untitled weakness"),
-    color: `var(${w.accentVar ?? "--pink"})`,
+    color: typeof w.color === "string" ? w.color : WEAKNESS_COLORS[i % WEAKNESS_COLORS.length],
     days: Array.from({ length: 7 }, (_, d) => Boolean(w.days?.[d])),
     notes: Array.from({ length: 7 }, (_, d) => (typeof w.notes?.[d] === "string" ? w.notes[d] : "")),
     status: w.status ?? "in-progress",
@@ -94,9 +99,9 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
   const todayIdx = week?.todayIdx ?? -1;
 
   // Optimistic: update now, save in the background, restore if the save fails.
-  const logDay = async (w: WeaknessItem, occurred: boolean, note: string) => {
+  const logDay = async (w: WeaknessItem, overcame: boolean, note: string) => {
     if (!week || dayIdx > todayIdx) return;
-    const prev = { occurred: w.days[dayIdx], note: w.notes[dayIdx] };
+    const prev = { overcame: w.days[dayIdx], note: w.notes[dayIdx] };
     const apply = (o: boolean, n: string) =>
       setItems((list) =>
         list.map((x) =>
@@ -107,17 +112,17 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
       );
     setSaveError(false);
     setOpenId(null);
-    apply(occurred, note);
+    apply(overcame, note);
     savesInFlight.current += 1;
     try {
       const res = await fetch(`${endpoint}/${w.id}/log`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: week.isos[dayIdx], occurred, note: note || null }),
+        body: JSON.stringify({ date: week.isos[dayIdx], overcame, note: note || null }),
       });
       if (!res.ok) throw new Error(`Save failed: ${res.status}`);
     } catch {
-      apply(prev.occurred, prev.note);
+      apply(prev.overcame, prev.note);
       setSaveError(true);
     } finally {
       savesInFlight.current -= 1;
@@ -132,13 +137,10 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
 
   const total = items.reduce((s, x) => s + x.days.filter(Boolean).length, 0);
   const onDay = items.filter((x) => x.days[dayIdx]).length;
-  const plural = (n: number) => `${n} ${n === 1 ? "slip" : "slips"}`;
 
   return (
     <>
       <OrbitBoard
-        title="Weaknesses you're working"
-        subtitle="Acknowledged in your sheet, tracked here"
         items={items}
         week={week}
         mode={mode}
@@ -148,16 +150,16 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
           setDayIdx(i);
           setMode("daily");
         }}
-        hubValue={daily ? onDay : total}
-        hubLabel={daily ? `slips · ${dayName}` : "slips this week"}
+        hubValue={(daily ? onDay : total) * POINTS_PER_WEAKNESS_DAY}
+        hubLabel={daily ? `points · ${dayName}` : "points this week"}
         caption={(item, active) =>
           daily
             ? active
-              ? { text: "Showed up", color: item.color }
-              : { text: "Held steady", dim: true }
+              ? { text: "Overcame it", color: item.color }
+              : { text: "Not yet", dim: true }
             : { text: item.statusLabel, color: STATUS_COLOR[(item as WeaknessItem).status] }
         }
-        railText={(i) => plural(items.filter((x) => x.days[i]).length)}
+        railText={(i) => `${items.filter((x) => x.days[i]).length * POINTS_PER_WEAKNESS_DAY} pts`}
         onSelect={(item) => setOpenId(item.id)}
         emptyText={
           <>
@@ -195,11 +197,10 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
           dayName={dayName}
           initialNote={open.notes[dayIdx]}
           alreadyLogged={open.days[dayIdx]}
-          readOnly={!daily}
-          subtitle={!daily ? "This week" : open.days[dayIdx] ? `Edit your note for ${dayName}` : `Did it show up on ${dayName}?`}
-          noteLabel="What triggered it? (optional)"
-          placeholder="What was going on?"
-          submitLabel={open.days[dayIdx] ? "Save note" : "Log slip"}
+          subtitle={open.days[dayIdx] ? `Edit your note for ${dayName}` : `Made progress on ${dayName}? Earns ${POINTS_PER_WEAKNESS_DAY} points`}
+          noteLabel="What helped? (optional)"
+          placeholder="How did you handle it?"
+          submitLabel={open.days[dayIdx] ? "Save note" : "Log progress"}
           info={
             <div style={{ margin: "0 0 14px", fontSize: 14, lineHeight: 1.5 }}>
               <div style={{ fontSize: 12, opacity: 0.7 }}>
