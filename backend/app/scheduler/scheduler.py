@@ -29,20 +29,20 @@ JOB_REGISTRY = {
     "flight_log": {
         "func": pull_todo_list,
         "id": "update_todo_list",
-        "desc": "Wrapper job to schedule To Do list pulls every 15 seconds",
-        "seconds": 15,
+        "desc": "Wrapper job to schedule To Do list pulls every 3 seconds",
+        "seconds": 10,
     },
     "altitude": {
         "func": add_goals_to_db,
         "id": "update_goals_list",
-        "desc": "Wrapper job to schedule Goals goals pulls (from sheets to db) every 15 seconds",
-        "seconds": 15,
+        "desc": "Wrapper job to schedule Goals goals pulls (from sheets to db) every 3 seconds",
+        "seconds": 10,
     },
     "turbulence": {
         "func": add_weaknesses_to_db,
         "id": "update_weaknesses_list",
-        "desc": "Wrapper job to schedule DISC weaknesses pulls (from sheets to db) every 15 seconds",
-        "seconds": 15,
+        "desc": "Wrapper job to schedule DISC weaknesses pulls (from sheets to db) every 3 seconds",
+        "seconds": 10,
     }
 }
 

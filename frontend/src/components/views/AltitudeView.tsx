@@ -30,6 +30,16 @@ export interface WeeklyGoal {
   notes: string[];
 }
 
+export interface GoalScore {
+  weekly: number;
+  daily: number[];
+}
+
+interface PullResponse {
+  goals: WeeklyGoal[];
+  score: GoalScore;
+}
+
 const POINTS_PER_GOAL_DAY = 10;
 const FALLBACK_COLORS = ["#C22B76", "#B8741A", "#2E8B6A", "#0879AD", "#6B32E0"];
 
@@ -362,6 +372,10 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
   const [week, setWeek] = useState<Week | null>(null);
   const [dayIdx, setDayIdx] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [score, setScore] = useState<GoalScore>({
+    weekly: 0,
+    daily: Array(7).fill(0),
+  });
 
   // Day rail takes the exact width of the Weekly/Daily toggle, so it sits right-aligned and centered beneath it.
   const toggleRef = useRef<HTMLDivElement>(null);
@@ -404,13 +418,25 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
     try {
       const res = await fetch(`${endpoint}/pull/${week.isos[0]}`, { signal: ctrl.signal });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-      const next = normalizeGoals(await res.json());
+
+      const data: PullResponse = await res.json();
+      const next = normalizeGoals(data.goals);
 
       // A save is pending, or finished after this request started: this response may be stale. Skip it.
       if (savesInFlight.current > 0 || lastSaveDone.current > startedAt) return;
 
       hasData.current = true;
-      setGoals((prev) => (sameGoals(prev, next) ? prev : next)); // same data = same reference = no re-render
+
+      setGoals((prev) => (sameGoals(prev, next) ? prev : next));
+
+      setScore({
+        weekly: Number(data.score?.weekly ?? 0),
+        daily: Array.from(
+          { length: 7 },
+          (_, i) => Number(data.score?.daily?.[i] ?? 0)
+        ),
+      });
+
       setStatus("ready");
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -422,7 +448,7 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
   //* TODO: This works, and is present in FlightLogView.tsx, but means the scheduler isn't running the subjobs every 15 seconds like supposed to */
   useEffect(() => {
     fetchWeekGoals();
-    const t = setInterval(fetchWeekGoals, 15_000); // matches the backend sync interval
+    const t = setInterval(fetchWeekGoals, 10_000); // matches the backend sync interval
     return () => {
       clearInterval(t);
       abortRef.current?.abort(); // cancels the in-flight request on unmount
@@ -464,15 +490,21 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
     } finally {
       savesInFlight.current -= 1;
       lastSaveDone.current = Date.now();
+
+      // Refresh goals and score immediately after saving.
+      if (savesInFlight.current === 0) {
+        fetchWeekGoals();
+      } 
     }
   };
 
   const closeDialog = useCallback(() => setEditingId(null), []);
   const editingGoal = goals.find((g) => g.id === editingId) ?? null;
 
-  const totalDone = goals.reduce((s, g) => s + g.days.filter(Boolean).length, 0);
-  const workedOnDay = goals.filter((g) => g.days[dayIdx]).length;
-  const points = (mode === "weekly" ? totalDone : workedOnDay) * POINTS_PER_GOAL_DAY;
+  const points = mode === "weekly"
+    ? score.weekly
+    : score.daily[dayIdx];
+
   const pointsShown = useCountUp(points);
 
   return (
@@ -632,7 +664,6 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
           <div className="asc-rail-wrap" aria-hidden={mode === "weekly"}>
           <div className="asc-rail" role="group" aria-label="Select a day">
             {DAY_NAMES.map((name, i) => {
-              const done = goals.filter((g) => g.days[i]);
               return (
                 <button
                   key={name}
@@ -654,7 +685,7 @@ export default function AltitudeView({ endpoint = `${base_url}/goals` }: Altitud
                       <i key={g.id} style={g.days[i] ? { background: g.color, borderColor: g.color } : undefined} />
                     ))}
                   </span>
-                  <span className="asc-rail-pts">{done.length * POINTS_PER_GOAL_DAY} pts</span>
+                  <span className="asc-rail-pts">{score.daily[i]} pts</span>
                 </button>
               );
             })}

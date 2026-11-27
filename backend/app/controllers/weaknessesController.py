@@ -17,6 +17,8 @@ def add_weaknesses_to_db(weekStart: str = "None"):
     Pulls weaknesses from the DISC tab of spreadsheet and saves them to the database.
     """
 
+    weakness_points = int(getenv("WEAKNESS_POINTS", 10))
+
     log_last_ran_time("add_weaknesses_to_db", job_desc="Pulls weaknesses from specific week from sheet, then upserts them into the db", base_job="update_weaknesses_list")
 
     if weekStart == "None":
@@ -66,6 +68,7 @@ def add_weaknesses_to_db(weekStart: str = "None"):
 
     # format completion data into tuples for db insertion
     completion_tuples = []
+    weekly_score = 0
     for weekday in range(7):
         day = datetime.strptime(weekStart, "%Y-%m-%d") + timedelta(days=weekday)
         i_tuple = (day.strftime("%Y-%m-%d"),)
@@ -80,13 +83,23 @@ def add_weaknesses_to_db(weekStart: str = "None"):
                     i_tuple += (False,)
             except IndexError:
                 i_tuple += (False,)
+
+        # calculate daily score for the day (10 points per completed weakness)
+        daily_score = sum(weakness_points for val in i_tuple[1:] if val)
+        i_tuple += (daily_score,)
+        weekly_score += daily_score
+
         completion_tuples.append(i_tuple)
+
+    # add weekly score to each tuple
+    completion_tuples = [tup + (weekly_score,) for tup in completion_tuples]
+
 
     # add tuples to db
     with db_cursor(commit=True) as cur:
         cur.executemany("""
-            INSERT INTO weakness_completions ("date", weakness1, weakness2, weakness3, weakness4, weakness5, weakness6)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO weakness_completions ("date", weakness1, weakness2, weakness3, weakness4, weakness5, weakness6, daily_score, weekly_score)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT ("date")
             DO UPDATE SET
                 weakness1 = EXCLUDED.weakness1,
@@ -94,7 +107,9 @@ def add_weaknesses_to_db(weekStart: str = "None"):
                 weakness3 = EXCLUDED.weakness3,
                 weakness4 = EXCLUDED.weakness4,
                 weakness5 = EXCLUDED.weakness5,
-                weakness6 = EXCLUDED.weakness6
+                weakness6 = EXCLUDED.weakness6,
+                daily_score = EXCLUDED.daily_score,
+                weekly_score = EXCLUDED.weekly_score
         """, completion_tuples)
 
     return {"weekStart": weekStart, "weaknesses": weaknesses, "weakness_completion": weakness_completion}
@@ -103,7 +118,25 @@ def add_weaknesses_to_db(weekStart: str = "None"):
 def pull_week_weaknesses(weekStart: str):
     """
     Pulls weaknesses from specific week from database, starting with Monday of said week.
+
+    Returns:
+        {
+            "weaknesses": [...],
+            "score": {
+                "weekly": int,
+                "daily": [int, int, int, int, int, int, int]
+            }
+        }
+    
+        Weaknesses should formatted as:
+    
+        [
+            "id": "weakness(1-6)",
+            "title": <Weakness title>,
+            "days": [false, false, true, false, true, false, false]  # 7 days of the week
+        ]
     """
+
     with db_cursor() as cur:
         cur.execute("""
             SELECT * FROM weakness_completions
@@ -119,15 +152,13 @@ def pull_week_weaknesses(weekStart: str):
         """)
         weaknesses = cur.fetchall()
 
-    """ 
-    Rows should formatted as:
+    daily_scores = []
+    weekly_score = 0
 
-    [
-        "id": "weakness(1-6)",
-        "title": <Weakness title>,
-        "days": [false, false, true, false, true, false, false]  # 7 days of the week
-    ]
-    """
+    for row in rows:
+        daily_scores.append(row.get("daily_score"))
+        weekly_score = row.get("weekly_score")  # All rows should have the same weekly score
+
 
     formatted_rows = []
     for weakness in weaknesses:
@@ -138,5 +169,11 @@ def pull_week_weaknesses(weekStart: str):
             "title": weakness["weakness_name"],
             "days": [row[f"weakness{weakness['weakness_id']}"] for row in rows]
         })
-    return formatted_rows
+    return {
+        "weaknesses": formatted_rows,
+        "score": {
+            "weekly": weekly_score,
+            "daily": daily_scores
+        }
+    }
 

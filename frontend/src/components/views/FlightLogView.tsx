@@ -143,7 +143,7 @@ function useTasks() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15_000); // matches the backend sync interval
+    const t = setInterval(load, 10_000); // matches the backend sync interval
     return () => clearInterval(t);
   }, [load]);
 

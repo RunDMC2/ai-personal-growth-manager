@@ -14,6 +14,16 @@ interface WeaknessItem extends WeeklyGoal {
   pattern: string;
 }
 
+export interface WeaknessScore {
+  weekly: number;
+  daily: number[];
+}
+
+interface PullResponse {
+  weaknesses: WeeklyGoal[];
+  score: WeaknessScore;
+}
+
 const POINTS_PER_WEAKNESS_DAY = 15;
 
 /** Own palette, deliberately different from the goal colors. Used when the API doesn't send a color. */
@@ -59,6 +69,10 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
   const hasData = useRef(false);
   const savesInFlight = useRef(0);
   const lastSaveDone = useRef(0);
+  const [score, setScore] = useState<WeaknessScore>({
+      weekly: 0,
+      daily: Array(7).fill(0),
+    });
 
   useEffect(() => {
     const w = getWeek();
@@ -76,10 +90,21 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
     try {
       const res = await fetch(`${endpoint}/pull/${week.isos[0]}`, { signal: ctrl.signal });
       if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-      const next = normalize(await res.json());
+
+     const data: PullResponse = await res.json();
+    const next = normalize(data.weaknesses);
+
       if (savesInFlight.current > 0 || lastSaveDone.current > startedAt) return; // possibly stale
       hasData.current = true;
       setItems((prev) => (same(prev, next) ? prev : next));
+
+      setScore({
+        weekly: Number(data.score?.weekly ?? 0),
+        daily: Array.from(
+          { length: 7 },
+          (_, i) => Number(data.score?.daily?.[i] ?? 0)
+        ),
+      });
       setStatus("ready");
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -89,7 +114,7 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15_000);
+    const t = setInterval(load, 10_000);
     return () => {
       clearInterval(t);
       abortRef.current?.abort();
@@ -131,6 +156,11 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
   };
 
   const closeDialog = useCallback(() => setOpenId(null), []);
+
+  const points = mode === "weekly"
+    ? score.weekly
+    : score.daily[dayIdx];
+
   const open = items.find((x) => x.id === openId) ?? null;
   const dayName = DAY_NAMES[dayIdx];
   const daily = mode === "daily";
@@ -150,7 +180,7 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
           setDayIdx(i);
           setMode("daily");
         }}
-        hubValue={(daily ? onDay : total) * POINTS_PER_WEAKNESS_DAY}
+        hubValue={points}
         hubLabel={daily ? `points · ${dayName}` : "points this week"}
         caption={(item, active) =>
           daily
@@ -159,7 +189,7 @@ export default function TurbulenceView({ endpoint = `${base_url}/weaknesses` }: 
               : { text: "Not yet", dim: true }
             : { text: item.statusLabel, color: STATUS_COLOR[(item as WeaknessItem).status] }
         }
-        railText={(i) => `${items.filter((x) => x.days[i]).length * POINTS_PER_WEAKNESS_DAY} pts`}
+        railText={(i) => `${score.daily[i]} pts`}
         onSelect={(item) => setOpenId(item.id)}
         emptyText={
           <>
