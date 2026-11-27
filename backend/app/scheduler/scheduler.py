@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
 from app.controllers.toDoController import pull_todo_list
+from app.controllers.goalsController import add_goals_to_db
+from app.controllers.weaknessesController import add_weaknesses_to_db
 from app.scheduler.scheduler_log import log_last_ran_time
 
 scheduler = AsyncIOScheduler()
@@ -27,6 +29,19 @@ JOB_REGISTRY = {
     "flight_log": {
         "func": pull_todo_list,
         "id": "update_todo_list",
+        "desc": "Wrapper job to schedule To Do list pulls every 15 seconds",
+        "seconds": 15,
+    },
+    "altitude": {
+        "func": add_goals_to_db,
+        "id": "update_goals_list",
+        "desc": "Wrapper job to schedule Goals goals pulls (from sheets to db) every 15 seconds",
+        "seconds": 15,
+    },
+    "turbulence": {
+        "func": add_weaknesses_to_db,
+        "id": "update_weaknesses_list",
+        "desc": "Wrapper job to schedule DISC weaknesses pulls (from sheets to db) every 15 seconds",
         "seconds": 15,
     }
 }
@@ -51,7 +66,11 @@ def start_job(job_id: str):
     if job:
         # scheduler.modify_job(job_id, next_run_time=datetime.now(tz=timezone.utc)) # runs immediately
         scheduler.resume_job(job_id)  # resumes the job if it was paused
-        log_last_ran_time(job_id)
+
+        # check description of job if its in JOB_REGISTRY
+        job_desc = next((job["desc"] for job in JOB_REGISTRY.values() if job["id"] == job_id), None)
+
+        log_last_ran_time(job_id, job_desc=job_desc)
     else:
         raise ValueError(f"No job found with ID: {job_id}")
 
@@ -68,6 +87,7 @@ def stop_job(job_id: str):
     
 
 # ----- Routes -----
+# --- TODO: ALWAYS RUN THIS ROUTE ON :8000/docs WHEN ADDING A NEW JOB TO THE REGISTRY, OTHERWISE IT WON'T BE SCHEDULED ---
 @router.post("/register-jobs")
 async def register_jobs_route():
     try:

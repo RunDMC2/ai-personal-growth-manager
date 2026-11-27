@@ -33,7 +33,8 @@ async def pull_todo_list():
     Pulls all tasks from To Do list and uploads to PostgreSQL database
     """
 
-    log_last_ran_time("pull_todo_list", base_job="update_todo_list")
+    job_desc = "Pulls all tasks from To Do list and uploads to PostgreSQL database"
+    log_last_ran_time("pull_todo_list", job_desc=job_desc, base_job="update_todo_list")
 
     creds = get_credentials()
     spreadsheet_id = getenv("SIP_SHEET_ID")
