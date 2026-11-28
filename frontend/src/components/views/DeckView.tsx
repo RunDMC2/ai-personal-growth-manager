@@ -4,12 +4,30 @@ import RingProgress from "../RingProgress";
 import FocusOrbit from "../FocusOrbit";
 import { heatRows, focusNodes } from "../../ascent/data";
 import { TabId } from "../../ascent/types";
+import { useEffect } from "react";
+
+
+export function useScheduler(job_id: string) {
+  useEffect(() => {
+    const base_url = process.env.NEXT_PUBLIC_API_URL;
+    fetch(`${base_url}/scheduler/start/${job_id}`, {
+      method: "POST",
+    }).catch((err) => console.error("Failed to start scheduler job:", err));
+
+    return () => {
+      navigator.sendBeacon(`${base_url}/scheduler/stop/${job_id}`);
+    };
+  }, [job_id]);
+}
 
 interface DeckViewProps {
   onNavigate: (tab: TabId) => void;
 }
 
 export default function DeckView({ onNavigate }: DeckViewProps) {
+  useScheduler("update_todo_list");
+  useScheduler("update_goals_list");
+  useScheduler("update_weaknesses_list");
   const totalActions = focusNodes.reduce((sum, n) => sum + n.value, 0);
 
   return (
